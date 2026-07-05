@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin · Quiniela Mundial 2026</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand"><span class="ball">⚽</span> Quiniela Final 2026</div>
+    <nav class="tabs">
+      <a href="index.html">Apostar</a>
+      <a href="apuestas.html">Apuestas</a>
+      <a href="resultados.html">Resultados</a>
+      <a href="admin.html">Admin</a>
+    </nav>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- Login -->
+  <div class="card" id="cardLogin">
+    <h2>Acceso de administrador</h2>
+    <p class="sub">Ingresa la clave para gestionar la quiniela.</p>
+    <form id="formLogin">
+      <label for="clave">Clave</label>
+      <input type="password" id="clave" required>
+      <button type="submit">Entrar</button>
+      <div class="msg" id="msgLogin"></div>
+    </form>
+  </div>
+
+  <!-- Panel (oculto hasta hacer login) -->
+  <div id="panelAdmin" style="display:none;">
+
+    <div class="card">
+      <h2>Configurar el partido</h2>
+      <p class="sub">Define los equipos de la final antes de abrir las apuestas.</p>
+      <form id="formEquipos">
+        <label for="equipoA">Nombre del equipo A</label>
+        <input type="text" id="equipoA" required maxlength="30">
+        <label for="equipoB">Nombre del equipo B</label>
+        <input type="text" id="equipoB" required maxlength="30">
+        <button type="submit">Guardar equipos</button>
+        <div class="msg" id="msgEquipos"></div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Estado de las apuestas</h2>
+      <p class="sub" id="estadoActual">Cargando estado...</p>
+      <button id="btnToggleAbierta" class="btn-outline">Cambiar estado</button>
+    </div>
+
+    <div class="card">
+      <h2>Códigos de acceso</h2>
+      <p class="sub">Genera un código único por cada persona de confianza y entrégaselo tú mismo (en persona o por WhatsApp). Sin un código válido, nadie puede registrar una apuesta — esto evita que alguien se registre haciéndose pasar por otra persona.</p>
+      <form id="formCodigos">
+        <label for="cantidadCodigos">¿Cuántos códigos nuevos generar?</label>
+        <input type="number" id="cantidadCodigos" min="1" max="30" value="1" required>
+        <button type="submit">Generar códigos</button>
+        <div class="msg" id="msgCodigos"></div>
+      </form>
+      <div id="listaCodigos" style="margin-top:20px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>Apuestas pendientes de verificar</h2>
+      <p class="sub">Verifícalas solo después de confirmar que la persona ya te pagó. Mientras estén pendientes, no cuentan para el bote ni para el reparto.</p>
+      <div id="listaPendientes"><p class="sub">Cargando...</p></div>
+    </div>
+
+    <div class="card">
+      <h2>Registrar resultado final</h2>
+      <p class="sub">Una vez que termine el partido, marca quién ganó. Esto calculará el reparto automáticamente. Ciérralo antes para evitar apuestas de último minuto.</p>
+      <form id="formResultado">
+        <label>¿Quién ganó?</label>
+        <div class="pick-group">
+          <div class="pick-option">
+            <input type="radio" name="resultado" id="resA" value="A" required>
+            <label for="resA" id="labelResA">Equipo A</label>
+          </div>
+          <div class="pick-option">
+            <input type="radio" name="resultado" id="resEmpate" value="EMPATE">
+            <label for="resEmpate">Empate</label>
+          </div>
+          <div class="pick-option">
+            <input type="radio" name="resultado" id="resB" value="B">
+            <label for="resB" id="labelResB">Equipo B</label>
+          </div>
+        </div>
+        <button type="submit">Guardar resultado</button>
+        <div class="msg" id="msgResultado"></div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Zona de reinicio</h2>
+      <p class="sub">Borra TODAS las apuestas, todos los códigos de acceso y el resultado registrado. Úsalo solo para empezar de cero (ej. pruebas antes del partido real).</p>
+      <button id="btnReset" class="btn-danger">Borrar todo</button>
+      <div class="msg" id="msgReset"></div>
+    </div>
+  </div>
+
+  <footer>Quiniela de amigos · Final Mundial 2026</footer>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/main.js"></script>
+<script>
+let configCache = { equipoA: 'Equipo A', equipoB: 'Equipo B', abierta: true, resultado: null };
+
+// --- Login simple (protección básica, suficiente para un grupo de amigos) ---
+document.getElementById('formLogin').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const clave = document.getElementById('clave').value;
+  const msg = document.getElementById('msgLogin');
+  if (clave === ADMIN_PASSWORD) {
+    document.getElementById('cardLogin').style.display = 'none';
+    document.getElementById('panelAdmin').style.display = 'block';
+  } else {
+    mostrarMensaje(msg, 'Clave incorrecta.', 'err');
+  }
+});
+
+listenConfig((config) => {
+  configCache = config;
+  document.getElementById('equipoA').value = config.equipoA;
+  document.getElementById('equipoB').value = config.equipoB;
+  document.getElementById('labelResA').textContent = config.equipoA;
+  document.getElementById('labelResB').textContent = config.equipoB;
+
+  const estadoP = document.getElementById('estadoActual');
+  const btnToggle = document.getElementById('btnToggleAbierta');
+  if (config.abierta) {
+    estadoP.textContent = 'Las apuestas están ABIERTAS. La gente puede seguir apostando.';
+    btnToggle.textContent = 'Cerrar apuestas';
+  } else {
+    estadoP.textContent = 'Las apuestas están CERRADAS. Nadie puede registrar apuestas nuevas.';
+    btnToggle.textContent = 'Reabrir apuestas';
+  }
+});
+
+document.getElementById('formEquipos').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('msgEquipos');
+  try {
+    await db.collection('config').doc('partido').set({
+      equipoA: document.getElementById('equipoA').value.trim(),
+      equipoB: document.getElementById('equipoB').value.trim(),
+      abierta: configCache.abierta ?? true,
+      resultado: configCache.resultado ?? null
+    }, { merge: true });
+    mostrarMensaje(msg, 'Equipos guardados.', 'ok');
+  } catch (err) {
+    mostrarMensaje(msg, 'Error: ' + err.message, 'err');
+  }
+});
+
+document.getElementById('btnToggleAbierta').addEventListener('click', async () => {
+  await db.collection('config').doc('partido').set({
+    abierta: !configCache.abierta
+  }, { merge: true });
+});
+
+// --- Generar códigos de acceso ---
+document.getElementById('formCodigos').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('msgCodigos');
+  const cantidad = parseInt(document.getElementById('cantidadCodigos').value, 10);
+
+  if (!cantidad || cantidad < 1) return;
+
+  try {
+    const batch = db.batch();
+    for (let i = 0; i < cantidad; i++) {
+      const ref = db.collection('codigos').doc();
+      batch.set(ref, {
+        codigo: generarCodigo(),
+        usado: false,
+        creado: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+    await batch.commit();
+    mostrarMensaje(msg, `${cantidad} código(s) generado(s). Repártelos abajo.`, 'ok');
+  } catch (err) {
+    mostrarMensaje(msg, 'Error: ' + err.message, 'err');
+  }
+});
+
+// Muestra la lista de todos los códigos generados, con su estado
+listenCodigos((codigos) => {
+  const cont = document.getElementById('listaCodigos');
+  if (codigos.length === 0) {
+    cont.innerHTML = '<p class="sub">Todavía no has generado ningún código.</p>';
+    return;
+  }
+
+  const filas = codigos.slice().reverse().map((c) => `
+    <tr>
+      <td style="font-family:monospace; font-size:16px; letter-spacing:0.1em;">${escapeHtml(c.codigo)}</td>
+      <td><span class="pill ${c.usado ? 'pill-pending' : 'pill-ok'}">${c.usado ? ('Usado' + (c.usadoPor ? ' — ' + escapeHtml(c.usadoPor) : '')) : 'Disponible'}</span></td>
+    </tr>
+  `).join('');
+
+  cont.innerHTML = `
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Código</th><th>Estado</th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+    </div>
+  `;
+});
+
+// --- Apuestas pendientes de verificar ---
+listenApuestas((apuestas) => {
+  const pendientes = apuestas.filter((a) => a.estado !== 'verificada');
+  const cont = document.getElementById('listaPendientes');
+
+  if (pendientes.length === 0) {
+    cont.innerHTML = '<p class="sub">No hay apuestas pendientes ahora mismo. 🎉</p>';
+    return;
+  }
+
+  const filas = pendientes.map((a) => `
+    <tr>
+      <td>${escapeHtml(a.nombre)}</td>
+      <td>${formatMoney(a.monto)}</td>
+      <td>${escapeHtml(etiquetaLocal(a.prediccion))}</td>
+      <td>
+        <button class="btn-outline" style="width:auto; margin:0; padding:8px 14px; font-size:11px;" data-verificar="${a.id}">Verificar</button>
+        <button class="btn-danger" style="width:auto; margin:0; padding:8px 14px; font-size:11px;" data-rechazar="${a.id}" data-codigo="${escapeHtml(a.codigoUsado || '')}">Rechazar</button>
+      </td>
+    </tr>
+  `).join('');
+
+  cont.innerHTML = `
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Nombre</th><th>Aportó</th><th>Predicción</th><th>Acción</th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+    </div>
+  `;
+
+  cont.querySelectorAll('[data-verificar]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      await db.collection('apuestas').doc(btn.getAttribute('data-verificar')).update({ estado: 'verificada' });
+    });
+  });
+
+  cont.querySelectorAll('[data-rechazar]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('¿Rechazar y borrar esta apuesta? Su código de acceso volverá a estar disponible.')) return;
+      const apuestaId = btn.getAttribute('data-rechazar');
+      const codigo = btn.getAttribute('data-codigo');
+
+      await db.collection('apuestas').doc(apuestaId).delete();
+
+      if (codigo) {
+        const codigosSnap = await db.collection('codigos').where('codigo', '==', codigo).limit(1).get();
+        if (!codigosSnap.empty) {
+          await codigosSnap.docs[0].ref.update({ usado: false, usadoPor: firebase.firestore.FieldValue.delete() });
+        }
+      }
+    });
+  });
+});
+
+function etiquetaLocal(p) {
+  if (p === 'A') return configCache.equipoA;
+  if (p === 'B') return configCache.equipoB;
+  return 'Empate';
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+document.getElementById('formResultado').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('msgResultado');
+  const resultadoEl = document.querySelector('input[name="resultado"]:checked');
+  if (!resultadoEl) return;
+
+  if (!confirm('¿Confirmas registrar este resultado? Esto calculará el reparto del premio.')) return;
+
+  try {
+    await db.collection('config').doc('partido').set({
+      resultado: resultadoEl.value,
+      abierta: false
+    }, { merge: true });
+    mostrarMensaje(msg, 'Resultado guardado. Revisa la página de Resultados.', 'ok');
+  } catch (err) {
+    mostrarMensaje(msg, 'Error: ' + err.message, 'err');
+  }
+});
+
+document.getElementById('btnReset').addEventListener('click', async () => {
+  const msg = document.getElementById('msgReset');
+  if (!confirm('Esto borrará TODAS las apuestas, TODOS los códigos de acceso y el resultado. ¿Continuar?')) return;
+
+  try {
+    const [apuestasSnap, codigosSnap] = await Promise.all([
+      db.collection('apuestas').get(),
+      db.collection('codigos').get()
+    ]);
+    const batch = db.batch();
+    apuestasSnap.forEach((doc) => batch.delete(doc.ref));
+    codigosSnap.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+
+    await db.collection('config').doc('partido').set({
+      resultado: null,
+      abierta: true
+    }, { merge: true });
+
+    mostrarMensaje(msg, 'Todo fue reiniciado.', 'ok');
+  } catch (err) {
+    mostrarMensaje(msg, 'Error: ' + err.message, 'err');
+  }
+});
+</script>
+</body>
+</html>

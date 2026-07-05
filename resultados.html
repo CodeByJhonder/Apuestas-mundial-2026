@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resultados · Quiniela Mundial 2026</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand"><span class="ball">⚽</span> Quiniela Final 2026</div>
+    <nav class="tabs">
+      <a href="index.html">Apostar</a>
+      <a href="apuestas.html">Apuestas</a>
+      <a href="resultados.html">Resultados</a>
+      <a href="admin.html">Admin</a>
+    </nav>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div id="sinResultado" class="card" style="display:none;">
+    <div class="empty-state">
+      <span class="ball">🏆</span>
+      El resultado final todavía no se ha registrado.<br>
+      Vuelve después de que termine el partido.
+    </div>
+  </div>
+
+  <div id="conResultado" style="display:none;">
+    <div class="scoreboard">
+      <div class="scoreboard-header">
+        <span class="label">Resultado final</span>
+        <span class="led cerrada">Finalizado</span>
+      </div>
+      <div class="scoreboard-body">
+        <div class="teams-row">
+          <span class="team-name" id="nombreA">Equipo A</span>
+          <span class="vs-divider">VS</span>
+          <span class="team-name" id="nombreB">Equipo B</span>
+        </div>
+        <div class="bote-display" id="ganadorTexto">—</div>
+        <div class="bote-label">Resultado registrado</div>
+      </div>
+      <div class="scoreboard-footer">
+        <div class="stat"><div class="num" id="boteTotalFoot">$0</div><div class="cap">Bote total</div></div>
+        <div class="stat"><div class="num" id="numGanadores">0</div><div class="cap">Ganadores</div></div>
+        <div class="stat"><div class="num" id="multiplicador">0x</div><div class="cap">Multiplicador</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Reparto del premio</h2>
+      <p class="sub">Cada ganador recibe una parte del bote proporcional a lo que apostó (a más riesgo, más premio).</p>
+      <div id="contenedorGanadores"></div>
+    </div>
+  </div>
+
+  <footer>Quiniela de amigos · Final Mundial 2026</footer>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/main.js"></script>
+<script>
+let configCache = {};
+let apuestasCache = [];
+
+function etiqueta(p) {
+  if (p === 'A') return configCache.equipoA;
+  if (p === 'B') return configCache.equipoB;
+  return 'Empate';
+}
+
+function render() {
+  if (!configCache.resultado) {
+    document.getElementById('sinResultado').style.display = 'block';
+    document.getElementById('conResultado').style.display = 'none';
+    return;
+  }
+
+  document.getElementById('sinResultado').style.display = 'none';
+  document.getElementById('conResultado').style.display = 'block';
+
+  document.getElementById('nombreA').textContent = configCache.equipoA;
+  document.getElementById('nombreB').textContent = configCache.equipoB;
+  document.getElementById('ganadorTexto').textContent = etiqueta(configCache.resultado);
+
+  const bote = calcularBote(apuestasCache);
+  const reparto = calcularReparto(apuestasCache, configCache.resultado);
+  const multiplicador = reparto.length > 0 ? reparto[0].multiplicador : 0;
+
+  document.getElementById('boteTotalFoot').textContent = formatMoney(bote);
+  document.getElementById('numGanadores').textContent = reparto.length;
+  document.getElementById('multiplicador').textContent = multiplicador.toFixed(2) + 'x';
+
+  const cont = document.getElementById('contenedorGanadores');
+  if (reparto.length === 0) {
+    cont.innerHTML = '<div class="empty-state"><span class="ball">😅</span>Nadie acertó el resultado esta vez. ¡Para la próxima!</div>';
+    return;
+  }
+
+  let filas = reparto.map((g) => `
+    <tr class="winner">
+      <td>🏆 ${escapeHtml(g.nombre)}</td>
+      <td>${formatMoney(g.monto)}</td>
+      <td>${formatMoney(g.premio)}</td>
+    </tr>
+  `).join('');
+
+  cont.innerHTML = `
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Ganador</th><th>Aportó</th><th>Recibe</th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+listenConfig((config) => { configCache = config; render(); });
+listenApuestas((apuestas) => { apuestasCache = apuestas; render(); });
+</script>
+</body>
+</html>

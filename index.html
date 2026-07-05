@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiniela Final Mundial 2026</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand"><span class="ball">⚽</span> Quiniela Final 2026</div>
+    <nav class="tabs">
+      <a href="index.html">Apostar</a>
+      <a href="apuestas.html">Apuestas</a>
+      <a href="resultados.html">Resultados</a>
+      <a href="admin.html">Admin</a>
+    </nav>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- Marcador -->
+  <div class="scoreboard">
+    <div class="scoreboard-header">
+      <span class="label">Gran Final · Mundial 2026</span>
+      <span class="led abierta" id="ledEstado">Abierta</span>
+    </div>
+    <div class="scoreboard-body">
+      <div class="teams-row">
+        <span class="team-name" id="nombreA">Equipo A</span>
+        <span class="vs-divider">VS</span>
+        <span class="team-name" id="nombreB">Equipo B</span>
+      </div>
+      <div class="bote-display" id="boteTotal">$0.00</div>
+      <div class="bote-label">Bote total confirmado</div>
+    </div>
+    <div class="scoreboard-footer">
+      <div class="stat"><div class="num" id="numApuestas">0</div><div class="cap">Verificadas</div></div>
+      <div class="stat"><div class="num" id="numPendientes">0</div><div class="cap">Pendientes</div></div>
+      <div class="stat"><div class="num" id="numA">0</div><div class="cap" id="capA">Equipo A</div></div>
+      <div class="stat"><div class="num" id="numB">0</div><div class="cap" id="capB">Equipo B</div></div>
+    </div>
+  </div>
+
+  <!-- Formulario -->
+  <div class="card" id="cardFormulario">
+    <h2>Registra tu apuesta</h2>
+    <p class="sub">Necesitas un código de acceso que te haya dado el administrador. Tu apuesta quedará como "pendiente" hasta que se confirme tu pago.</p>
+
+    <form id="formApuesta">
+      <label for="nombre">Tu nombre</label>
+      <input type="text" id="nombre" required maxlength="40" placeholder="Ej. Juan Pérez">
+
+      <label for="cedula">Número de cédula</label>
+      <input type="text" id="cedula" required maxlength="20" placeholder="Ej. V-12345678">
+
+      <label for="telefono">Número de teléfono</label>
+      <input type="text" id="telefono" required maxlength="20" placeholder="Ej. 0414-1234567">
+
+      <label for="direccion">Dirección</label>
+      <input type="text" id="direccion" required maxlength="100" placeholder="Ej. Calle 5, Casa 12, Elorza">
+
+      <label for="monto">Monto que aportas (Solo Dólares)</label>
+      <input type="number" id="monto" required min="1" step="any" placeholder="Ej. 100">
+
+      <label for="codigoAcceso">Código de acceso</label>
+      <input type="text" id="codigoAcceso" required maxlength="10" placeholder="El código que te dio el administrador" style="text-transform:uppercase;">
+
+      <label>¿Quién crees que gana?</label>
+      <div class="pick-group">
+        <div class="pick-option">
+          <input type="radio" name="prediccion" id="pickA" value="A" required>
+          <label for="pickA" id="labelPickA">Equipo A</label>
+        </div>
+        <div class="pick-option">
+          <input type="radio" name="prediccion" id="pickEmpate" value="EMPATE">
+          <label for="pickEmpate">Empate</label>
+        </div>
+        <div class="pick-option">
+          <input type="radio" name="prediccion" id="pickB" value="B">
+          <label for="pickB" id="labelPickB">Equipo B</label>
+        </div>
+      </div>
+
+      <button type="submit" id="btnEnviar">Confirmar apuesta</button>
+      <div class="msg" id="msgApuesta"></div>
+    </form>
+  </div>
+
+  <footer>Quiniela de amigos · Final Mundial 2026</footer>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/main.js"></script>
+<script>
+let apuestasCache = [];
+let configCache = {};
+
+listenConfig((config) => {
+  configCache = config;
+  document.getElementById('nombreA').textContent = config.equipoA;
+  document.getElementById('nombreB').textContent = config.equipoB;
+  document.getElementById('labelPickA').textContent = config.equipoA;
+  document.getElementById('labelPickB').textContent = config.equipoB;
+  document.getElementById('capA').textContent = config.equipoA;
+  document.getElementById('capB').textContent = config.equipoB;
+
+  const led = document.getElementById('ledEstado');
+  const btn = document.getElementById('btnEnviar');
+  if (config.abierta) {
+    led.textContent = 'Abierta';
+    led.className = 'led abierta';
+    btn.disabled = false;
+    btn.textContent = 'Confirmar apuesta';
+  } else {
+    led.textContent = 'Cerrada';
+    led.className = 'led cerrada';
+    btn.disabled = true;
+    btn.textContent = 'Las apuestas están cerradas';
+  }
+});
+
+listenApuestas((apuestas) => {
+  apuestasCache = apuestas;
+  const verificadas = apuestasVerificadas(apuestas);
+  const pendientes = apuestas.length - verificadas.length;
+
+  document.getElementById('boteTotal').textContent = formatMoney(calcularBote(apuestas));
+  document.getElementById('numApuestas').textContent = verificadas.length;
+  document.getElementById('numPendientes').textContent = pendientes;
+  document.getElementById('numA').textContent = verificadas.filter(a => a.prediccion === 'A').length;
+  document.getElementById('numB').textContent = verificadas.filter(a => a.prediccion === 'B').length;
+});
+
+document.getElementById('formApuesta').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('msgApuesta');
+  const btn = document.getElementById('btnEnviar');
+
+  if (!configCache.abierta) {
+    mostrarMensaje(msg, 'Las apuestas ya están cerradas.', 'err');
+    return;
+  }
+
+  const nombre = document.getElementById('nombre').value.trim();
+  const cedula = document.getElementById('cedula').value.trim();
+  const telefono = document.getElementById('telefono').value.trim();
+  const direccion = document.getElementById('direccion').value.trim();
+  const monto = parseFloat(document.getElementById('monto').value);
+  const codigo = document.getElementById('codigoAcceso').value.trim().toUpperCase();
+  const prediccionEl = document.querySelector('input[name="prediccion"]:checked');
+
+  if (!nombre || !cedula || !telefono || !direccion || !monto || monto <= 0 || !codigo || !prediccionEl) {
+    mostrarMensaje(msg, 'Por favor completa todos los campos correctamente.', 'err');
+    return;
+  }
+
+  // Evita que la misma persona apueste dos veces (por nombre)
+  const yaApostado = apuestasCache.some(a => a.nombre.toLowerCase() === nombre.toLowerCase());
+  if (yaApostado) {
+    mostrarMensaje(msg, 'Ya existe una apuesta registrada con ese nombre.', 'err');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Verificando código...';
+
+  try {
+    // Busca el código de acceso exacto
+    const codigosSnap = await db.collection('codigos').where('codigo', '==', codigo).limit(1).get();
+
+    if (codigosSnap.empty) {
+      mostrarMensaje(msg, 'Ese código de acceso no existe. Pídele el correcto al administrador.', 'err');
+      btn.disabled = !configCache.abierta;
+      btn.textContent = 'Confirmar apuesta';
+      return;
+    }
+
+    const codigoRef = codigosSnap.docs[0].ref;
+    btn.textContent = 'Enviando...';
+
+    // Transacción: valida que el código no esté usado, lo marca como usado,
+    // y registra la apuesta — todo junto, para que dos personas no puedan
+    // usar el mismo código al mismo tiempo.
+    await db.runTransaction(async (t) => {
+      const codigoActual = await t.get(codigoRef);
+      if (!codigoActual.exists || codigoActual.data().usado) {
+        throw new Error('Ese código ya fue utilizado. Pídele uno nuevo al administrador.');
+      }
+
+      const nuevaApuestaRef = db.collection('apuestas').doc();
+      t.set(nuevaApuestaRef, {
+        nombre: nombre,
+        cedula: cedula,
+        telefono: telefono,
+        direccion: direccion,
+        monto: monto,
+        prediccion: prediccionEl.value,
+        estado: 'pendiente',
+        codigoUsado: codigo,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      t.update(codigoRef, { usado: true, usadoPor: nombre });
+    });
+
+    mostrarMensaje(msg, '¡Apuesta registrada! Quedará "Pendiente" hasta que el administrador confirme tu pago.', 'ok');
+    document.getElementById('formApuesta').reset();
+  } catch (err) {
+    mostrarMensaje(msg, 'Error: ' + err.message, 'err');
+  } finally {
+    btn.disabled = !configCache.abierta;
+    btn.textContent = 'Confirmar apuesta';
+  }
+});
+</script>
+</body>
+</html>
