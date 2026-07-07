@@ -64,7 +64,8 @@
       <input type="text" id="direccion" required maxlength="100" placeholder="Ej. Calle 5, Casa 12, Elorza">
 
       <label for="monto">Monto que aportas (Solo Dólares)</label>
-      <input type="number" id="monto" required min="1" step="any" placeholder="Ej. 100">
+      <input type="number" id="monto" required min="1" max="10000000" step="any" placeholder="Ej. 100">
+      <small style="display:block; color: var(--chalk-dim); font-size: 12px; margin-top: 4px;">Mínimo $1 — máximo $10,000,000</small>
 
       <label for="codigoAcceso">Código de acceso</label>
       <input type="text" id="codigoAcceso" required maxlength="10" placeholder="El código que te dio el administrador" style="text-transform:uppercase;">
@@ -157,6 +158,11 @@ document.getElementById('formApuesta').addEventListener('submit', async (e) => {
 
   if (!nombre || !cedula || !telefono || !direccion || !monto || monto <= 0 || !codigo || !prediccionEl) {
     mostrarMensaje(msg, 'Por favor completa todos los campos correctamente.', 'err');
+    return;
+  }
+
+  if (monto < 1 || monto > 10000000) {
+    mostrarMensaje(msg, 'El monto debe estar entre $1 y $10,000,000.', 'err');
     return;
   }
 
