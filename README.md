@@ -87,7 +87,8 @@ service cloud.firestore {
     match /apuestas/{apuestaId} {
       allow read: if true;
       allow create: if request.resource.data.monto is number
-                    && request.resource.data.monto > 0
+                    && request.resource.data.monto >= 1
+                    && request.resource.data.monto <= 10000000
                     && request.resource.data.nombre is string
                     && request.resource.data.estado == 'pendiente'
                     && request.resource.data.prediccion in ['A', 'B', 'EMPATE'];
