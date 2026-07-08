@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mi perfil · Quiniela Mundial 2026</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand"><span class="ball">⚽</span> Quiniela Final 2026</div>
+    <nav class="tabs">
+      <a href="index.html">Apostar</a>
+      <a href="apuestas.html">Apuestas</a>
+      <a href="resultados.html">Resultados</a>
+      <a href="perfil.html">Perfil</a>
+      <a href="admin.html">Admin</a>
+    </nav>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="card" id="cardSinSesion" style="display:none;">
+    <div class="empty-state">
+      <span class="ball">🔒</span>
+      No has iniciado sesión.<br><br>
+      <a href="login.html" class="btn" style="display:inline-block; width:auto; margin:0 6px;">Iniciar sesión</a>
+      <a href="registro.html" class="btn btn-outline" style="display:inline-block; width:auto; margin:0 6px;">Crear cuenta</a>
+    </div>
+  </div>
+
+  <div id="contenidoPerfil" style="display:none;">
+
+    <!-- Datos + saldo -->
+    <div class="scoreboard">
+      <div class="scoreboard-header">
+        <span class="label">Mi cuenta</span>
+        <button id="btnCerrarSesion" class="btn-outline" style="width:auto; margin:0; padding:6px 14px; font-size:11px;">Cerrar sesión</button>
+      </div>
+      <div class="scoreboard-body">
+        <div class="team-name" id="nombreCompleto" style="margin-bottom: 6px;">—</div>
+        <div class="bote-display" id="saldoActual">$0.00</div>
+        <div class="bote-label">Saldo disponible</div>
+      </div>
+      <div class="scoreboard-footer">
+        <div class="stat"><div class="num" id="statTotal">0</div><div class="cap">Apuestas</div></div>
+        <div class="stat"><div class="num" id="statGanadas">0</div><div class="cap">Ganadas</div></div>
+        <div class="stat"><div class="num" id="statAciertos">0%</div><div class="cap">% Aciertos</div></div>
+        <div class="stat"><div class="num" id="statFallas">0%</div><div class="cap">% Fallas</div></div>
+      </div>
+    </div>
+
+    <!-- Recargar saldo -->
+    <div class="card">
+      <h2>Recargar saldo</h2>
+      <p class="sub">Pídele al administrador que apruebe tu recarga después de que le hayas dado el dinero por fuera del sistema (efectivo o transferencia).</p>
+      <form id="formRecarga">
+        <label for="montoRecarga">¿Cuánto quieres recargar?</label>
+        <input type="number" id="montoRecarga" min="1" max="10000000" step="any" required placeholder="Ej. 100">
+        <button type="submit">Solicitar recarga</button>
+        <div class="msg" id="msgRecarga"></div>
+      </form>
+      <div id="listaRecargas" style="margin-top:16px;"></div>
+    </div>
+
+    <!-- Historial -->
+    <div class="card">
+      <h2>Historial de apuestas</h2>
+      <p class="sub">Todas tus apuestas registradas con esta cuenta, partido tras partido.</p>
+      <div id="listaHistorial"><p class="sub">Cargando...</p></div>
+    </div>
+  </div>
+
+  <footer>Quiniela de amigos · Final Mundial 2026</footer>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/main.js"></script>
+<script>
+const cedula = sesionActual();
+
+if (!cedula) {
+  document.getElementById('cardSinSesion').style.display = 'block';
+} else {
+  document.getElementById('contenidoPerfil').style.display = 'block';
+  iniciarPerfil(cedula);
+}
+
+document.getElementById('btnCerrarSesion').addEventListener('click', () => {
+  cerrarSesion();
+  location.href = 'index.html';
+});
+
+function iniciarPerfil(cedula) {
+  listenUsuario(cedula, (usuario) => {
+    if (!usuario) {
+      // La cuenta ya no existe (borrada), cerramos la sesión
+      cerrarSesion();
+      location.href = 'login.html';
+      return;
+    }
+    document.getElementById('nombreCompleto').textContent = usuario.nombre + ' ' + usuario.apellido;
+    document.getElementById('saldoActual').textContent = formatMoney(usuario.saldo);
+  });
+
+  // Historial: todas las apuestas hechas con esta cuenta
+  db.collection('apuestas').where('usuarioCedula', '==', cedula).orderBy('timestamp', 'desc')
+    .onSnapshot((snapshot) => {
+      const historial = [];
+      snapshot.forEach((doc) => historial.push({ id: doc.id, ...doc.data() }));
+      renderHistorial(historial);
+    }, (err) => {
+      document.getElementById('listaHistorial').innerHTML = `<p class="sub">Error cargando historial: ${escapeHtml(err.message)}</p>`;
+    });
+
+  // Recargas solicitadas por esta cuenta
+  db.collection('recargas').where('usuarioCedula', '==', cedula).orderBy('creado', 'desc')
+    .onSnapshot((snapshot) => {
+      const recargas = [];
+      snapshot.forEach((doc) => recargas.push({ id: doc.id, ...doc.data() }));
+      renderRecargas(recargas);
+    });
+}
+
+function renderHistorial(historial) {
+  const stats = calcularEstadisticasUsuario(historial);
+  document.getElementById('statTotal').textContent = stats.totalApuestas;
+  document.getElementById('statGanadas').textContent = stats.ganadas;
+  document.getElementById('statAciertos').textContent = stats.porcentajeAciertos.toFixed(0) + '%';
+  document.getElementById('statFallas').textContent = stats.porcentajeFallas.toFixed(0) + '%';
+
+  const cont = document.getElementById('listaHistorial');
+  if (historial.length === 0) {
+    cont.innerHTML = '<div class="empty-state"><span class="ball">⚽</span>Todavía no has hecho ninguna apuesta con tu cuenta.</div>';
+    return;
+  }
+
+  const filas = historial.map((h) => {
+    let resultadoTexto = 'Por jugarse';
+    let claseFila = '';
+    if (h.resultado) {
+      const gano = h.prediccion === h.resultado;
+      resultadoTexto = gano ? `Ganó (+${formatMoney(h.premioGanado || 0)})` : 'Perdió';
+      claseFila = gano ? 'winner' : '';
+    }
+    const partidoTexto = (h.equipoANombreSnapshot && h.equipoBNombreSnapshot)
+      ? `${h.equipoANombreSnapshot} vs ${h.equipoBNombreSnapshot}`
+      : 'Partido';
+
+    return `
+      <tr class="${claseFila}">
+        <td>${escapeHtml(partidoTexto)}</td>
+        <td>${escapeHtml(etiquetaLocalHistorial(h))}</td>
+        <td>${formatMoney(h.monto)}</td>
+        <td><span class="pill ${h.estado === 'verificada' ? 'pill-ok' : 'pill-pending'}">${h.estado === 'verificada' ? 'Verificada' : 'Pendiente'}</span></td>
+        <td>${escapeHtml(resultadoTexto)}</td>
+      </tr>
+    `;
+  }).join('');
+
+  cont.innerHTML = `
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Partido</th><th>Predicción</th><th>Aportó</th><th>Estado</th><th>Resultado</th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function etiquetaLocalHistorial(h) {
+  if (h.prediccion === 'A') return h.equipoANombreSnapshot || 'Equipo A';
+  if (h.prediccion === 'B') return h.equipoBNombreSnapshot || 'Equipo B';
+  return 'Empate';
+}
+
+function renderRecargas(recargas) {
+  const cont = document.getElementById('listaRecargas');
+  if (recargas.length === 0) {
+    cont.innerHTML = '';
+    return;
+  }
+  const filas = recargas.map((r) => {
+    let clase = 'pill-pending';
+    let texto = 'Pendiente';
+    if (r.estado === 'aprobada') { clase = 'pill-ok'; texto = 'Aprobada'; }
+    if (r.estado === 'rechazada') { clase = 'pill-danger'; texto = 'Rechazada'; }
+    return `
+      <tr>
+        <td>${formatMoney(r.monto)}</td>
+        <td><span class="pill ${clase}">${texto}</span></td>
+      </tr>
+    `;
+  }).join('');
+  cont.innerHTML = `
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Monto solicitado</th><th>Estado</th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+document.getElementById('formRecarga').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('msgRecarga');
+  const monto = parseFloat(document.getElementById('montoRecarga').value);
+
+  if (!monto || monto < 1 || monto > 10000000) {
+    mostrarMensaje(msg, 'El monto debe estar entre $1 y $10,000,000.', 'err');
+    return;
+  }
+
+  try {
+    await db.collection('recargas').add({
+      usuarioCedula: cedula,
+      monto: monto,
+      estado: 'pendiente',
+      creado: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    mostrarMensaje(msg, 'Solicitud enviada. Se reflejará en tu saldo cuando el administrador la apruebe.', 'ok');
+    document.getElementById('formRecarga').reset();
+  } catch (err) {
+    mostrarMensaje(msg, 'Error: ' + err.message, 'err');
+  }
+});
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>

@@ -15,6 +15,7 @@
       <a href="index.html">Apostar</a>
       <a href="apuestas.html">Apuestas</a>
       <a href="resultados.html">Resultados</a>
+      <a href="perfil.html">Perfil</a>
       <a href="admin.html">Admin</a>
     </nav>
   </div>
@@ -22,73 +23,102 @@
 
 <div class="wrap">
 
-  <!-- Marcador -->
-  <div class="scoreboard">
-    <div class="scoreboard-header">
-      <span class="label">Gran Final · Mundial 2026</span>
-      <span class="led abierta" id="ledEstado">Abierta</span>
-    </div>
-    <div class="scoreboard-body">
-      <div class="teams-row">
-        <span class="team-name" id="nombreA">Equipo A</span>
-        <span class="vs-divider">VS</span>
-        <span class="team-name" id="nombreB">Equipo B</span>
-      </div>
-      <div class="bote-display" id="boteTotal">$0.00</div>
-      <div class="bote-label">Bote total confirmado</div>
-    </div>
-    <div class="scoreboard-footer">
-      <div class="stat"><div class="num" id="numApuestas">0</div><div class="cap">Verificadas</div></div>
-      <div class="stat"><div class="num" id="numPendientes">0</div><div class="cap">Pendientes</div></div>
-      <div class="stat"><div class="num" id="numA">0</div><div class="cap" id="capA">Equipo A</div></div>
-      <div class="stat"><div class="num" id="numB">0</div><div class="cap" id="capB">Equipo B</div></div>
+  <!-- Puerta de entrada: solo se muestra si no hay sesión ni se ha elegido "omitir" -->
+  <div class="card" id="cardPuerta" style="display:none;">
+    <h2>¿Cómo quieres continuar?</h2>
+    <p class="sub">Con una cuenta llevas tu historial y tu saldo de partido en partido. También puedes apostar sin registrarte.</p>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <a href="registro.html" class="btn" style="display:block; text-align:center; text-decoration:none;">Crear cuenta</a>
+      <a href="login.html" class="btn btn-outline" style="display:block; text-align:center; text-decoration:none;">Iniciar sesión</a>
+      <button id="btnOmitir" class="btn-outline">Omitir registro y apostar directo</button>
     </div>
   </div>
 
-  <!-- Formulario -->
-  <div class="card" id="cardFormulario">
-    <h2>Registra tu apuesta</h2>
-    <p class="sub">Necesitas un código de acceso que te haya dado el administrador. Tu apuesta quedará como "pendiente" hasta que se confirme tu pago.</p>
+  <div id="contenidoApuesta" style="display:none;">
 
-    <form id="formApuesta">
-      <label for="nombre">Tu nombre</label>
-      <input type="text" id="nombre" required maxlength="40" placeholder="Ej. Juan Pérez">
-
-      <label for="cedula">Número de cédula</label>
-      <input type="text" id="cedula" required maxlength="20" placeholder="Ej. V-12345678">
-
-      <label for="telefono">Número de teléfono</label>
-      <input type="text" id="telefono" required maxlength="20" placeholder="Ej. 0414-1234567">
-
-      <label for="direccion">Dirección</label>
-      <input type="text" id="direccion" required maxlength="100" placeholder="Ej. Calle 5, Casa 12, Elorza">
-
-      <label for="monto">Monto que aportas (Solo Dólares)</label>
-      <input type="number" id="monto" required min="1" max="10000000" step="any" placeholder="Ej. 100">
-      <small style="display:block; color: var(--chalk-dim); font-size: 12px; margin-top: 4px;">Mínimo $1 — máximo $10,000,000</small>
-
-      <label for="codigoAcceso">Código de acceso</label>
-      <input type="text" id="codigoAcceso" required maxlength="10" placeholder="El código que te dio el administrador" style="text-transform:uppercase;">
-
-      <label>¿Quién crees que gana?</label>
-      <div class="pick-group">
-        <div class="pick-option">
-          <input type="radio" name="prediccion" id="pickA" value="A" required>
-          <label for="pickA" id="labelPickA">Equipo A</label>
-        </div>
-        <div class="pick-option">
-          <input type="radio" name="prediccion" id="pickEmpate" value="EMPATE">
-          <label for="pickEmpate">Empate</label>
-        </div>
-        <div class="pick-option">
-          <input type="radio" name="prediccion" id="pickB" value="B">
-          <label for="pickB" id="labelPickB">Equipo B</label>
-        </div>
+    <!-- Marcador -->
+    <div class="scoreboard">
+      <div class="scoreboard-header">
+        <span class="label">Gran Final · Mundial 2026</span>
+        <span class="led abierta" id="ledEstado">Abierta</span>
       </div>
+      <div class="scoreboard-body">
+        <div class="teams-row">
+          <div class="team-block">
+            <img class="team-flag" id="banderaA" alt="" style="display:none;">
+            <span class="team-name" id="nombreA">Equipo A</span>
+          </div>
+          <span class="vs-divider">VS</span>
+          <div class="team-block">
+            <img class="team-flag" id="banderaB" alt="" style="display:none;">
+            <span class="team-name" id="nombreB">Equipo B</span>
+          </div>
+        </div>
+        <div class="bote-display" id="boteTotal">$0.00</div>
+        <div class="bote-label">Bote total confirmado</div>
+      </div>
+      <div class="scoreboard-footer">
+        <div class="stat"><div class="num" id="numApuestas">0</div><div class="cap">Verificadas</div></div>
+        <div class="stat"><div class="num" id="numPendientes">0</div><div class="cap">Pendientes</div></div>
+        <div class="stat"><div class="num" id="numA">0</div><div class="cap" id="capA">Equipo A</div></div>
+        <div class="stat"><div class="num" id="numB">0</div><div class="cap" id="capB">Equipo B</div></div>
+      </div>
+    </div>
 
-      <button type="submit" id="btnEnviar">Confirmar apuesta</button>
-      <div class="msg" id="msgApuesta"></div>
-    </form>
+    <!-- Aviso de cuenta activa -->
+    <div class="card" id="cardCuentaActiva" style="display:none; padding:16px 24px;">
+      <p class="sub" style="margin:0;">
+        Apostando con tu cuenta (<strong id="nombreCuentaActiva" style="color:var(--chalk);"></strong>) ·
+        Saldo disponible: <strong id="saldoCuentaActiva" style="color:var(--gold);"></strong> ·
+        <a href="perfil.html">Ver mi perfil</a>
+      </p>
+    </div>
+
+    <!-- Formulario -->
+    <div class="card" id="cardFormulario">
+      <h2>Registra tu apuesta</h2>
+      <p class="sub" id="subFormulario">Necesitas un código de acceso que te haya dado el administrador. Tu apuesta quedará como "pendiente" hasta que se confirme tu pago.</p>
+
+      <form id="formApuesta">
+        <label for="nombre">Tu nombre</label>
+        <input type="text" id="nombre" required maxlength="40" placeholder="Ej. Juan Pérez">
+
+        <label for="cedula">Número de cédula</label>
+        <input type="text" id="cedula" required maxlength="20" placeholder="Ej. V-12345678">
+
+        <label for="telefono">Número de teléfono</label>
+        <input type="text" id="telefono" required maxlength="20" placeholder="Ej. 0414-1234567">
+
+        <label for="direccion">Dirección</label>
+        <input type="text" id="direccion" required maxlength="100" placeholder="Ej. Calle 5, Casa 12, Elorza">
+
+        <label for="monto" id="labelMonto">Monto que aportas (Solo Dólares)</label>
+        <input type="number" id="monto" required min="1" max="10000000" step="any" placeholder="Ej. 100">
+        <small style="display:block; color: var(--chalk-dim); font-size: 12px; margin-top: 4px;" id="ayudaMonto">Mínimo $1 — máximo $10,000,000</small>
+
+        <label for="codigoAcceso">Código de acceso</label>
+        <input type="text" id="codigoAcceso" required maxlength="10" placeholder="El código que te dio el administrador" style="text-transform:uppercase;">
+
+        <label>¿Quién crees que gana?</label>
+        <div class="pick-group">
+          <div class="pick-option">
+            <input type="radio" name="prediccion" id="pickA" value="A" required>
+            <label for="pickA" id="labelPickA">Equipo A</label>
+          </div>
+          <div class="pick-option">
+            <input type="radio" name="prediccion" id="pickEmpate" value="EMPATE">
+            <label for="pickEmpate">Empate</label>
+          </div>
+          <div class="pick-option">
+            <input type="radio" name="prediccion" id="pickB" value="B">
+            <label for="pickB" id="labelPickB">Equipo B</label>
+          </div>
+        </div>
+
+        <button type="submit" id="btnEnviar">Confirmar apuesta</button>
+        <div class="msg" id="msgApuesta"></div>
+      </form>
+    </div>
   </div>
 
   <footer>Quiniela de amigos · Final Mundial 2026</footer>
@@ -98,14 +128,59 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="js/firebase-config.js"></script>
 <script src="js/main.js"></script>
+<script src="js/paises.js"></script>
 <script>
 let apuestasCache = [];
 let configCache = {};
+let usuarioCache = null;
+const cedulaSesion = sesionActual();
+
+// --- Puerta de entrada ---
+if (!cedulaSesion && localStorage.getItem('quiniela_modo_invitado') !== 'true') {
+  document.getElementById('cardPuerta').style.display = 'block';
+} else {
+  document.getElementById('contenidoApuesta').style.display = 'block';
+}
+
+document.getElementById('btnOmitir').addEventListener('click', () => {
+  localStorage.setItem('quiniela_modo_invitado', 'true');
+  document.getElementById('cardPuerta').style.display = 'none';
+  document.getElementById('contenidoApuesta').style.display = 'block';
+});
+
+// Si hay sesión activa, precarga los datos de la cuenta y ajusta el formulario
+if (cedulaSesion) {
+  listenUsuario(cedulaSesion, (usuario) => {
+    if (!usuario) {
+      cerrarSesion();
+      location.reload();
+      return;
+    }
+    usuarioCache = usuario;
+
+    document.getElementById('cardCuentaActiva').style.display = 'block';
+    document.getElementById('nombreCuentaActiva').textContent = usuario.nombre + ' ' + usuario.apellido;
+    document.getElementById('saldoCuentaActiva').textContent = formatMoney(usuario.saldo);
+
+    document.getElementById('nombre').value = usuario.nombre + ' ' + usuario.apellido;
+    document.getElementById('cedula').value = usuario.cedula;
+    document.getElementById('telefono').value = usuario.telefono;
+    document.getElementById('nombre').disabled = true;
+    document.getElementById('cedula').disabled = true;
+    document.getElementById('telefono').disabled = true;
+
+    document.getElementById('labelMonto').textContent = 'Monto que aportas (de tu saldo)';
+    document.getElementById('ayudaMonto').textContent = `Saldo disponible: ${formatMoney(usuario.saldo)} — no puedes apostar más de eso.`;
+    document.getElementById('subFormulario').textContent = 'Necesitas un código de acceso que te haya dado el administrador. El monto se descuenta de tu saldo al confirmar.';
+  });
+}
 
 listenConfig((config) => {
   configCache = config;
   document.getElementById('nombreA').textContent = config.equipoA;
   document.getElementById('nombreB').textContent = config.equipoB;
+  mostrarBandera('banderaA', config.equipoACodigo);
+  mostrarBandera('banderaB', config.equipoBCodigo);
   document.getElementById('labelPickA').textContent = config.equipoA;
   document.getElementById('labelPickB').textContent = config.equipoB;
   document.getElementById('capA').textContent = config.equipoA;
@@ -124,19 +199,26 @@ listenConfig((config) => {
     btn.disabled = true;
     btn.textContent = 'Las apuestas están cerradas';
   }
+
+  renderMarcador();
 });
 
 listenApuestas((apuestas) => {
   apuestasCache = apuestas;
-  const verificadas = apuestasVerificadas(apuestas);
-  const pendientes = apuestas.length - verificadas.length;
+  renderMarcador();
+});
 
-  document.getElementById('boteTotal').textContent = formatMoney(calcularBote(apuestas));
+function renderMarcador() {
+  const delPartido = filtrarPorPartido(apuestasCache, configCache.partidoId);
+  const verificadas = apuestasVerificadas(delPartido);
+  const pendientes = delPartido.length - verificadas.length;
+
+  document.getElementById('boteTotal').textContent = formatMoney(calcularBote(delPartido));
   document.getElementById('numApuestas').textContent = verificadas.length;
   document.getElementById('numPendientes').textContent = pendientes;
   document.getElementById('numA').textContent = verificadas.filter(a => a.prediccion === 'A').length;
   document.getElementById('numB').textContent = verificadas.filter(a => a.prediccion === 'B').length;
-});
+}
 
 document.getElementById('formApuesta').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -166,10 +248,16 @@ document.getElementById('formApuesta').addEventListener('submit', async (e) => {
     return;
   }
 
-  // Evita que la misma persona apueste dos veces (por nombre)
-  const yaApostado = apuestasCache.some(a => a.nombre.toLowerCase() === nombre.toLowerCase());
+  if (usuarioCache && monto > usuarioCache.saldo) {
+    mostrarMensaje(msg, `No puedes apostar más de tu saldo disponible (${formatMoney(usuarioCache.saldo)}). Recarga saldo desde tu perfil.`, 'err');
+    return;
+  }
+
+  // Evita que la misma persona apueste dos veces en ESTE partido (por nombre)
+  const delPartido = filtrarPorPartido(apuestasCache, configCache.partidoId);
+  const yaApostado = delPartido.some(a => a.nombre.toLowerCase() === nombre.toLowerCase());
   if (yaApostado) {
-    mostrarMensaje(msg, 'Ya existe una apuesta registrada con ese nombre.', 'err');
+    mostrarMensaje(msg, 'Ya existe una apuesta registrada con ese nombre en este partido.', 'err');
     return;
   }
 
@@ -188,15 +276,28 @@ document.getElementById('formApuesta').addEventListener('submit', async (e) => {
     }
 
     const codigoRef = codigosSnap.docs[0].ref;
+    const usuarioRef = usuarioCache ? db.collection('usuarios').doc(usuarioCache.cedula) : null;
     btn.textContent = 'Enviando...';
 
-    // Transacción: valida que el código no esté usado, lo marca como usado,
-    // y registra la apuesta — todo junto, para que dos personas no puedan
-    // usar el mismo código al mismo tiempo.
+    // Transacción: valida el código, valida el saldo (si aplica), descuenta el
+    // saldo, y registra la apuesta — todo junto, para evitar condiciones de carrera.
     await db.runTransaction(async (t) => {
       const codigoActual = await t.get(codigoRef);
       if (!codigoActual.exists || codigoActual.data().usado) {
         throw new Error('Ese código ya fue utilizado. Pídele uno nuevo al administrador.');
+      }
+
+      const reservadoPara = codigoActual.data().reservadoPara;
+      if (reservadoPara && reservadoPara.trim().toLowerCase() !== nombre.toLowerCase()) {
+        throw new Error('Este código está apartado para otra persona. Si eres tú, escribe tu nombre exactamente como se lo diste al administrador.');
+      }
+
+      let usuarioActualDoc = null;
+      if (usuarioRef) {
+        usuarioActualDoc = await t.get(usuarioRef);
+        if (!usuarioActualDoc.exists || Number(usuarioActualDoc.data().saldo) < monto) {
+          throw new Error('Tu saldo ya no alcanza para esta apuesta. Recarga saldo desde tu perfil.');
+        }
       }
 
       const nuevaApuestaRef = db.collection('apuestas').doc();
@@ -209,13 +310,25 @@ document.getElementById('formApuesta').addEventListener('submit', async (e) => {
         prediccion: prediccionEl.value,
         estado: 'pendiente',
         codigoUsado: codigo,
+        partidoId: configCache.partidoId || null,
+        equipoANombreSnapshot: configCache.equipoA || null,
+        equipoBNombreSnapshot: configCache.equipoB || null,
+        usuarioCedula: usuarioCache ? usuarioCache.cedula : null,
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
       });
       t.update(codigoRef, { usado: true, usadoPor: nombre });
+
+      if (usuarioRef) {
+        t.update(usuarioRef, { saldo: firebase.firestore.FieldValue.increment(-monto) });
+      }
     });
 
     mostrarMensaje(msg, '¡Apuesta registrada! Quedará "Pendiente" hasta que el administrador confirme tu pago.', 'ok');
-    document.getElementById('formApuesta').reset();
+    document.getElementById('codigoAcceso').value = '';
+    document.querySelectorAll('input[name="prediccion"]').forEach((r) => r.checked = false);
+    if (!usuarioCache) {
+      document.getElementById('formApuesta').reset();
+    }
   } catch (err) {
     mostrarMensaje(msg, 'Error: ' + err.message, 'err');
   } finally {

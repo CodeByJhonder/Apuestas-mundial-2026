@@ -34,6 +34,81 @@ function listenApuestas(callback) {
   });
 }
 
+// Deja solo las apuestas que pertenecen al partido actual (por partidoId).
+// Las apuestas viejas que no tengan partidoId (de antes de esta función)
+// quedan fuera de las vistas en vivo — se conservan como historial.
+function filtrarPorPartido(apuestas, partidoId) {
+  if (!partidoId) return apuestas;
+  return apuestas.filter((a) => a.partidoId === partidoId);
+}
+
+// Genera un identificador único y simple para un partido nuevo
+function generarPartidoId() {
+  return 'partido_' + Date.now();
+}
+
+// Convierte un PIN en un hash (SHA-256) antes de guardarlo o compararlo,
+// para que el PIN nunca quede guardado en texto plano en la base de datos.
+async function hashPin(pin) {
+  const datos = new TextEncoder().encode(String(pin));
+  const buffer = await crypto.subtle.digest('SHA-256', datos);
+  return Array.from(new Uint8Array(buffer)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+// --- Cuentas de usuario (registro permanente, con saldo e historial) ---
+
+// Escucha en tiempo real los datos de una cuenta específica (por cédula)
+function listenUsuario(cedula, callback) {
+  return db.collection('usuarios').doc(cedula).onSnapshot((doc) => {
+    callback(doc.exists ? { id: doc.id, ...doc.data() } : null);
+  });
+}
+
+// Escucha en tiempo real TODAS las cuentas registradas (para el admin)
+function listenUsuarios(callback) {
+  return db.collection('usuarios').orderBy('creado', 'desc').onSnapshot((snapshot) => {
+    const usuarios = [];
+    snapshot.forEach((doc) => usuarios.push({ id: doc.id, ...doc.data() }));
+    callback(usuarios);
+  });
+}
+
+// Escucha en tiempo real todas las solicitudes de recarga de saldo
+function listenRecargas(callback) {
+  return db.collection('recargas').orderBy('creado', 'desc').onSnapshot((snapshot) => {
+    const recargas = [];
+    snapshot.forEach((doc) => recargas.push({ id: doc.id, ...doc.data() }));
+    callback(recargas);
+  });
+}
+
+// Guarda/lee la sesión del usuario logueado (solo en este navegador)
+function guardarSesion(cedula) {
+  localStorage.setItem('quiniela_cedula_sesion', cedula);
+}
+function sesionActual() {
+  return localStorage.getItem('quiniela_cedula_sesion');
+}
+function cerrarSesion() {
+  localStorage.removeItem('quiniela_cedula_sesion');
+}
+
+// Calcula estadísticas de aciertos/fallas de un usuario, a partir de SU
+// historial de apuestas verificadas y ya resueltas (partidos con resultado)
+function calcularEstadisticasUsuario(historial) {
+  const resueltas = historial.filter((h) => h.resultado); // solo partidos ya finalizados
+  const ganadas = resueltas.filter((h) => h.prediccion === h.resultado);
+  const total = resueltas.length;
+  return {
+    totalApuestas: historial.length,
+    resueltas: total,
+    ganadas: ganadas.length,
+    perdidas: total - ganadas.length,
+    porcentajeAciertos: total > 0 ? (ganadas.length / total) * 100 : 0,
+    porcentajeFallas: total > 0 ? ((total - ganadas.length) / total) * 100 : 0
+  };
+}
+
 // Escucha en tiempo real todos los códigos de acceso generados por el admin
 function listenCodigos(callback) {
   return db.collection('codigos').orderBy('creado', 'desc').onSnapshot((snapshot) => {
@@ -86,10 +161,39 @@ function calcularReparto(apuestas, resultado) {
   });
 }
 
+// Suma cuánto dinero (ya verificado) se apostó a una predicción específica
+// ("A", "B" o "EMPATE")
+function totalPorPrediccion(apuestas, prediccion) {
+  return apuestasVerificadas(apuestas)
+    .filter((a) => a.prediccion === prediccion)
+    .reduce((total, a) => total + Number(a.monto || 0), 0);
+}
+
+// Calcula el multiplicador POTENCIAL si esa predicción resultara ganadora
+// (bote total ÷ lo apostado a esa predicción). Es una previa antes de que
+// termine el partido — cambia en vivo según entran más apuestas.
+function multiplicadorPotencial(apuestas, prediccion) {
+  const bote = calcularBote(apuestas);
+  const totalPrediccion = totalPorPrediccion(apuestas, prediccion);
+  return totalPrediccion > 0 ? bote / totalPrediccion : null;
+}
 // Muestra un mensaje de éxito o error en un contenedor con clase .msg
 function mostrarMensaje(el, texto, tipo) {
   el.textContent = texto;
   el.className = 'msg show ' + (tipo === 'ok' ? 'ok' : 'err');
+}
+
+// Muestra la bandera de un país en un elemento <img>, dado su código ISO.
+// Si no hay código configurado todavía, oculta la imagen sin romper nada.
+function mostrarBandera(idImg, codigo) {
+  const img = document.getElementById(idImg);
+  if (!img) return;
+  if (codigo && typeof urlBandera === 'function') {
+    img.src = urlBandera(codigo);
+    img.style.display = 'inline-block';
+  } else {
+    img.style.display = 'none';
+  }
 }
 
 // Marca el link activo en la barra de navegación según la página actual

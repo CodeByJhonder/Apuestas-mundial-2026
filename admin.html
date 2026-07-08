@@ -15,6 +15,7 @@
       <a href="index.html">Apostar</a>
       <a href="apuestas.html">Apuestas</a>
       <a href="resultados.html">Resultados</a>
+      <a href="perfil.html">Perfil</a>
       <a href="admin.html">Admin</a>
     </nav>
   </div>
@@ -41,10 +42,10 @@
       <h2>Configurar el partido</h2>
       <p class="sub">Define los equipos de la final antes de abrir las apuestas.</p>
       <form id="formEquipos">
-        <label for="equipoA">Nombre del equipo A</label>
-        <input type="text" id="equipoA" required maxlength="30">
-        <label for="equipoB">Nombre del equipo B</label>
-        <input type="text" id="equipoB" required maxlength="30">
+        <label for="equipoA">País del equipo A</label>
+        <select id="equipoA" required></select>
+        <label for="equipoB">País del equipo B</label>
+        <select id="equipoB" required></select>
         <button type="submit">Guardar equipos</button>
         <div class="msg" id="msgEquipos"></div>
       </form>
@@ -58,7 +59,7 @@
 
     <div class="card">
       <h2>Códigos de acceso</h2>
-      <p class="sub">Genera un código único por cada persona de confianza y entrégaselo tú mismo (en persona o por WhatsApp). Sin un código válido, nadie puede registrar una apuesta — esto evita que alguien se registre haciéndose pasar por otra persona.</p>
+      <p class="sub">Genera un código único por cada persona de confianza y entrégaselo tú mismo (en persona o por WhatsApp). Sin un código válido, nadie puede registrar una apuesta — esto evita que alguien se registre haciéndose pasar por otra persona. Si alguien ya te dio la mitad del pago, puedes "apartarle" un código con su nombre — el sistema exigirá que la persona escriba ese mismo nombre en el formulario para poder usarlo, así nadie más puede quitárselo.</p>
       <form id="formCodigos">
         <label for="cantidadCodigos">¿Cuántos códigos nuevos generar?</label>
         <input type="number" id="cantidadCodigos" min="1" max="30" value="1" required>
@@ -72,6 +73,18 @@
       <h2>Apuestas pendientes de verificar</h2>
       <p class="sub">Verifícalas solo después de confirmar que la persona ya te pagó. Mientras estén pendientes, no cuentan para el bote ni para el reparto.</p>
       <div id="listaPendientes"><p class="sub">Cargando...</p></div>
+    </div>
+
+    <div class="card">
+      <h2>Recargas de saldo pendientes</h2>
+      <p class="sub">Apruébalas solo después de confirmar que la persona ya te pagó por fuera del sistema. Al aprobar, el monto se suma automáticamente a su saldo.</p>
+      <div id="listaRecargas"><p class="sub">Cargando...</p></div>
+    </div>
+
+    <div class="card">
+      <h2>Gestión de usuarios</h2>
+      <p class="sub">Cuentas registradas, su saldo actual y sus datos de contacto. Puedes ajustar un saldo manualmente si necesitas corregir algo.</p>
+      <div id="listaUsuarios"><p class="sub">Cargando...</p></div>
     </div>
 
     <div class="card">
@@ -113,8 +126,17 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="js/firebase-config.js"></script>
 <script src="js/main.js"></script>
+<script src="js/paises.js"></script>
 <script>
 let configCache = { equipoA: 'Equipo A', equipoB: 'Equipo B', abierta: true, resultado: null };
+let apuestasCache = [];
+
+// Llena los selectores de país con la lista de PAISES (definida en js/paises.js)
+function poblarSelectPaises(selectEl) {
+  selectEl.innerHTML = PAISES.map((p) => `<option value="${p.codigo}">${p.nombre}</option>`).join('');
+}
+poblarSelectPaises(document.getElementById('equipoA'));
+poblarSelectPaises(document.getElementById('equipoB'));
 
 // --- Login simple (protección básica, suficiente para un grupo de amigos) ---
 document.getElementById('formLogin').addEventListener('submit', (e) => {
@@ -131,8 +153,8 @@ document.getElementById('formLogin').addEventListener('submit', (e) => {
 
 listenConfig((config) => {
   configCache = config;
-  document.getElementById('equipoA').value = config.equipoA;
-  document.getElementById('equipoB').value = config.equipoB;
+  if (config.equipoACodigo) document.getElementById('equipoA').value = config.equipoACodigo;
+  if (config.equipoBCodigo) document.getElementById('equipoB').value = config.equipoBCodigo;
   document.getElementById('labelResA').textContent = config.equipoA;
   document.getElementById('labelResB').textContent = config.equipoB;
 
@@ -151,9 +173,16 @@ document.getElementById('formEquipos').addEventListener('submit', async (e) => {
   e.preventDefault();
   const msg = document.getElementById('msgEquipos');
   try {
+    const codigoA = document.getElementById('equipoA').value;
+    const codigoB = document.getElementById('equipoB').value;
+    const paisA = PAISES.find((p) => p.codigo === codigoA);
+    const paisB = PAISES.find((p) => p.codigo === codigoB);
+
     await db.collection('config').doc('partido').set({
-      equipoA: document.getElementById('equipoA').value.trim(),
-      equipoB: document.getElementById('equipoB').value.trim(),
+      equipoA: paisA ? paisA.nombre : 'Equipo A',
+      equipoACodigo: codigoA,
+      equipoB: paisB ? paisB.nombre : 'Equipo B',
+      equipoBCodigo: codigoB,
       abierta: configCache.abierta ?? true,
       resultado: configCache.resultado ?? null
     }, { merge: true });
@@ -202,25 +231,67 @@ listenCodigos((codigos) => {
     return;
   }
 
-  const filas = codigos.slice().reverse().map((c) => `
-    <tr>
-      <td style="font-family:monospace; font-size:16px; letter-spacing:0.1em;">${escapeHtml(c.codigo)}</td>
-      <td><span class="pill ${c.usado ? 'pill-pending' : 'pill-ok'}">${c.usado ? ('Usado' + (c.usadoPor ? ' — ' + escapeHtml(c.usadoPor) : '')) : 'Disponible'}</span></td>
-    </tr>
-  `).join('');
+  const filas = codigos.slice().reverse().map((c) => {
+    let estadoHtml;
+    let accionHtml;
+
+    if (c.usado) {
+      estadoHtml = `<span class="pill pill-pending">Usado${c.usadoPor ? ' — ' + escapeHtml(c.usadoPor) : ''}</span>`;
+      accionHtml = '—';
+    } else if (c.reservadoPara) {
+      estadoHtml = `<span class="pill pill-reservado">Apartado — ${escapeHtml(c.reservadoPara)}</span>`;
+      accionHtml = `<button class="btn-outline" style="width:auto; margin:0; padding:6px 12px; font-size:11px;" data-quitar-reserva="${c.id}">Quitar reserva</button>`;
+    } else {
+      estadoHtml = `<span class="pill pill-ok">Disponible</span>`;
+      accionHtml = `
+        <div style="display:flex; gap:6px;">
+          <input type="text" placeholder="Nombre..." maxlength="40" style="padding:6px 8px; font-size:12px; width:110px;" data-input-reserva="${c.id}">
+          <button class="btn-outline" style="width:auto; margin:0; padding:6px 12px; font-size:11px;" data-apartar="${c.id}">Apartar</button>
+        </div>
+      `;
+    }
+
+    return `
+      <tr>
+        <td style="font-family:monospace; font-size:16px; letter-spacing:0.1em;">${escapeHtml(c.codigo)}</td>
+        <td>${estadoHtml}</td>
+        <td>${accionHtml}</td>
+      </tr>
+    `;
+  }).join('');
 
   cont.innerHTML = `
     <div class="table-scroll">
       <table>
-        <thead><tr><th>Código</th><th>Estado</th></tr></thead>
+        <thead><tr><th>Código</th><th>Estado</th><th>Acción</th></tr></thead>
         <tbody>${filas}</tbody>
       </table>
     </div>
   `;
+
+  cont.querySelectorAll('[data-apartar]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-apartar');
+      const input = cont.querySelector(`[data-input-reserva="${id}"]`);
+      const nombre = input.value.trim();
+      if (!nombre) {
+        input.focus();
+        return;
+      }
+      await db.collection('codigos').doc(id).update({ reservadoPara: nombre });
+    });
+  });
+
+  cont.querySelectorAll('[data-quitar-reserva]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      await db.collection('codigos').doc(btn.getAttribute('data-quitar-reserva')).update({ reservadoPara: firebase.firestore.FieldValue.delete() });
+    });
+  });
 });
 
 // --- Apuestas pendientes de verificar ---
 listenApuestas((apuestas) => {
+  apuestasCache = apuestas;
   const pendientes = apuestas.filter((a) => a.estado !== 'verificada');
   const cont = document.getElementById('listaPendientes');
 
@@ -231,12 +302,12 @@ listenApuestas((apuestas) => {
 
   const filas = pendientes.map((a) => `
     <tr>
-      <td>${escapeHtml(a.nombre)}</td>
+      <td>${escapeHtml(a.nombre)}${a.usuarioCedula ? ' <span class="pill pill-reservado" style="font-size:10px;">Cuenta</span>' : ''}</td>
       <td>${formatMoney(a.monto)}</td>
       <td>${escapeHtml(etiquetaLocal(a.prediccion))}</td>
       <td>
         <button class="btn-outline" style="width:auto; margin:0; padding:8px 14px; font-size:11px;" data-verificar="${a.id}">Verificar</button>
-        <button class="btn-danger" style="width:auto; margin:0; padding:8px 14px; font-size:11px;" data-rechazar="${a.id}" data-codigo="${escapeHtml(a.codigoUsado || '')}">Rechazar</button>
+        <button class="btn-danger" style="width:auto; margin:0; padding:8px 14px; font-size:11px;" data-rechazar="${a.id}" data-codigo="${escapeHtml(a.codigoUsado || '')}" data-usuario="${escapeHtml(a.usuarioCedula || '')}" data-monto="${a.monto}">Rechazar</button>
       </td>
     </tr>
   `).join('');
@@ -258,11 +329,24 @@ listenApuestas((apuestas) => {
 
   cont.querySelectorAll('[data-rechazar]').forEach((btn) => {
     btn.addEventListener('click', async () => {
-      if (!confirm('¿Rechazar y borrar esta apuesta? Su código de acceso volverá a estar disponible.')) return;
+      const usuarioCedula = btn.getAttribute('data-usuario');
+      const mensajeConfirm = usuarioCedula
+        ? '¿Rechazar esta apuesta? Su código volverá a estar disponible y el monto se devolverá a su saldo.'
+        : '¿Rechazar y borrar esta apuesta? Su código de acceso volverá a estar disponible.';
+      if (!confirm(mensajeConfirm)) return;
+
       const apuestaId = btn.getAttribute('data-rechazar');
       const codigo = btn.getAttribute('data-codigo');
+      const monto = parseFloat(btn.getAttribute('data-monto')) || 0;
 
-      await db.collection('apuestas').doc(apuestaId).delete();
+      const batch = db.batch();
+      batch.delete(db.collection('apuestas').doc(apuestaId));
+      if (usuarioCedula) {
+        batch.update(db.collection('usuarios').doc(usuarioCedula), {
+          saldo: firebase.firestore.FieldValue.increment(monto)
+        });
+      }
+      await batch.commit();
 
       if (codigo) {
         const codigosSnap = await db.collection('codigos').where('codigo', '==', codigo).limit(1).get();
@@ -280,6 +364,105 @@ function etiquetaLocal(p) {
   return 'Empate';
 }
 
+// --- Recargas de saldo pendientes ---
+listenRecargas((recargas) => {
+  const pendientes = recargas.filter((r) => r.estado === 'pendiente');
+  const cont = document.getElementById('listaRecargas');
+
+  if (pendientes.length === 0) {
+    cont.innerHTML = '<p class="sub">No hay recargas pendientes ahora mismo. 🎉</p>';
+    return;
+  }
+
+  const filas = pendientes.map((r) => `
+    <tr>
+      <td>${escapeHtml(r.usuarioCedula)}</td>
+      <td>${formatMoney(r.monto)}</td>
+      <td>
+        <button class="btn-outline" style="width:auto; margin:0; padding:8px 14px; font-size:11px;" data-aprobar-recarga="${r.id}" data-cedula="${escapeHtml(r.usuarioCedula)}" data-monto="${r.monto}">Aprobar</button>
+        <button class="btn-danger" style="width:auto; margin:0; padding:8px 14px; font-size:11px;" data-rechazar-recarga="${r.id}">Rechazar</button>
+      </td>
+    </tr>
+  `).join('');
+
+  cont.innerHTML = `
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Cédula</th><th>Monto solicitado</th><th>Acción</th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+    </div>
+  `;
+
+  cont.querySelectorAll('[data-aprobar-recarga]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const cedula = btn.getAttribute('data-cedula');
+      const monto = parseFloat(btn.getAttribute('data-monto')) || 0;
+      const batch = db.batch();
+      batch.update(db.collection('recargas').doc(btn.getAttribute('data-aprobar-recarga')), { estado: 'aprobada' });
+      batch.update(db.collection('usuarios').doc(cedula), { saldo: firebase.firestore.FieldValue.increment(monto) });
+      await batch.commit();
+    });
+  });
+
+  cont.querySelectorAll('[data-rechazar-recarga]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('¿Rechazar esta solicitud de recarga?')) return;
+      await db.collection('recargas').doc(btn.getAttribute('data-rechazar-recarga')).update({ estado: 'rechazada' });
+    });
+  });
+});
+
+// --- Gestión de usuarios ---
+listenUsuarios((usuarios) => {
+  const cont = document.getElementById('listaUsuarios');
+
+  if (usuarios.length === 0) {
+    cont.innerHTML = '<p class="sub">Todavía no hay ninguna cuenta registrada.</p>';
+    return;
+  }
+
+  const filas = usuarios.map((u) => `
+    <tr>
+      <td>${escapeHtml(u.nombre)} ${escapeHtml(u.apellido)}</td>
+      <td>${escapeHtml(u.cedula)}</td>
+      <td>${escapeHtml(u.telefono)}</td>
+      <td>${escapeHtml(u.correo)}</td>
+      <td>${formatMoney(u.saldo)}</td>
+      <td>
+        <div style="display:flex; gap:6px;">
+          <input type="number" placeholder="+/- monto" step="any" style="padding:6px 8px; font-size:12px; width:100px;" data-ajuste-input="${u.id}">
+          <button class="btn-outline" style="width:auto; margin:0; padding:6px 12px; font-size:11px;" data-ajustar="${u.id}">Ajustar</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+
+  cont.innerHTML = `
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Nombre</th><th>Cédula</th><th>Teléfono</th><th>Correo</th><th>Saldo</th><th>Ajustar saldo</th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+    </div>
+  `;
+
+  cont.querySelectorAll('[data-ajustar]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-ajustar');
+      const input = cont.querySelector(`[data-ajuste-input="${id}"]`);
+      const monto = parseFloat(input.value);
+      if (!monto) {
+        input.focus();
+        return;
+      }
+      if (!confirm(`¿Ajustar el saldo de esta cuenta en ${monto > 0 ? '+' : ''}${monto}?`)) return;
+      await db.collection('usuarios').doc(id).update({ saldo: firebase.firestore.FieldValue.increment(monto) });
+      input.value = '';
+    });
+  });
+});
+
 function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
@@ -292,14 +475,42 @@ document.getElementById('formResultado').addEventListener('submit', async (e) =>
   const resultadoEl = document.querySelector('input[name="resultado"]:checked');
   if (!resultadoEl) return;
 
-  if (!confirm('¿Confirmas registrar este resultado? Esto calculará el reparto del premio.')) return;
+  if (configCache.resultado) {
+    mostrarMensaje(msg, 'Ya hay un resultado registrado para este partido. Si necesitas corregirlo, usa primero la Zona de reinicio.', 'err');
+    return;
+  }
+
+  if (!confirm('¿Confirmas registrar este resultado? Esto calculará el reparto y acreditará los premios directo a las cuentas registradas. Esta acción no se puede deshacer.')) return;
 
   try {
-    await db.collection('config').doc('partido').set({
-      resultado: resultadoEl.value,
+    const resultado = resultadoEl.value;
+    const delPartido = filtrarPorPartido(apuestasCache, configCache.partidoId);
+    const verificadas = apuestasVerificadas(delPartido);
+    const reparto = calcularReparto(delPartido, resultado);
+    const premiosPorId = {};
+    reparto.forEach((g) => { premiosPorId[g.id] = g.premio; });
+
+    const batch = db.batch();
+    batch.set(db.collection('config').doc('partido'), {
+      resultado: resultado,
       abierta: false
     }, { merge: true });
-    mostrarMensaje(msg, 'Resultado guardado. Revisa la página de Resultados.', 'ok');
+
+    verificadas.forEach((a) => {
+      const premio = premiosPorId[a.id] || 0;
+      batch.update(db.collection('apuestas').doc(a.id), {
+        resultado: resultado,
+        premioGanado: premio
+      });
+      if (premio > 0 && a.usuarioCedula) {
+        batch.update(db.collection('usuarios').doc(a.usuarioCedula), {
+          saldo: firebase.firestore.FieldValue.increment(premio)
+        });
+      }
+    });
+
+    await batch.commit();
+    mostrarMensaje(msg, 'Resultado guardado y premios acreditados a las cuentas registradas. Revisa la página de Resultados.', 'ok');
   } catch (err) {
     mostrarMensaje(msg, 'Error: ' + err.message, 'err');
   }

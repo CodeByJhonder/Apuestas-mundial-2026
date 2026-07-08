@@ -15,12 +15,39 @@
       <a href="index.html">Apostar</a>
       <a href="apuestas.html">Apuestas</a>
       <a href="resultados.html">Resultados</a>
+      <a href="perfil.html">Perfil</a>
       <a href="admin.html">Admin</a>
     </nav>
   </div>
 </div>
 
 <div class="wrap">
+
+  <!-- Resumen por equipo -->
+  <div class="card">
+    <h2>Resumen por equipo</h2>
+    <p class="sub">Dinero apostado (ya verificado) a cada opción, y el multiplicador que tendría cada apostador SI esa opción resulta ganadora. Se actualiza en vivo.</p>
+    <div class="resumen-equipos" id="resumenEquipos">
+      <div class="resumen-item">
+        <img class="resumen-flag" id="resBanderaA" alt="" style="display:none;">
+        <div class="resumen-nombre" id="resNombreA">Equipo A</div>
+        <div class="resumen-monto" id="resMontoA">$0.00</div>
+        <div class="resumen-multi" id="resMultiA">—</div>
+      </div>
+      <div class="resumen-item">
+        <div class="resumen-nombre">Empate</div>
+        <div class="resumen-monto" id="resMontoEmpate">$0.00</div>
+        <div class="resumen-multi" id="resMultiEmpate">—</div>
+      </div>
+      <div class="resumen-item">
+        <img class="resumen-flag" id="resBanderaB" alt="" style="display:none;">
+        <div class="resumen-nombre" id="resNombreB">Equipo B</div>
+        <div class="resumen-monto" id="resMontoB">$0.00</div>
+        <div class="resumen-multi" id="resMultiB">—</div>
+      </div>
+    </div>
+  </div>
+
   <div class="card">
     <h2>Apuestas registradas</h2>
     <p class="sub">Lista completa y transparente de quién apostó qué.</p>
@@ -35,15 +62,48 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="js/firebase-config.js"></script>
 <script src="js/main.js"></script>
+<script src="js/paises.js"></script>
 <script>
 let configCache = { equipoA: 'Equipo A', equipoB: 'Equipo B' };
+let apuestasCache = [];
 
-listenConfig((config) => { configCache = config; });
+listenConfig((config) => {
+  configCache = config;
+  document.getElementById('resNombreA').textContent = config.equipoA;
+  document.getElementById('resNombreB').textContent = config.equipoB;
+  mostrarBandera('resBanderaA', config.equipoACodigo);
+  mostrarBandera('resBanderaB', config.equipoBCodigo);
+  renderResumen();
+});
 
-function etiquetaPrediccion(p) {
-  if (p === 'A') return configCache.equipoA;
-  if (p === 'B') return configCache.equipoB;
+// Regresa un HTML pequeño de bandera + nombre para usar dentro de la tabla
+function etiquetaPrediccionConBandera(p) {
+  if (p === 'A') return htmlBanderaTexto(configCache.equipoACodigo, configCache.equipoA);
+  if (p === 'B') return htmlBanderaTexto(configCache.equipoBCodigo, configCache.equipoB);
   return 'Empate';
+}
+
+function htmlBanderaTexto(codigo, texto) {
+  const img = codigo ? `<img src="${urlBandera(codigo)}" class="pill-flag" alt="">` : '';
+  return `${img}${escapeHtml(texto)}`;
+}
+
+function renderResumen() {
+  const montoA = totalPorPrediccion(apuestasCache, 'A');
+  const montoB = totalPorPrediccion(apuestasCache, 'B');
+  const montoEmpate = totalPorPrediccion(apuestasCache, 'EMPATE');
+
+  const multiA = multiplicadorPotencial(apuestasCache, 'A');
+  const multiB = multiplicadorPotencial(apuestasCache, 'B');
+  const multiEmpate = multiplicadorPotencial(apuestasCache, 'EMPATE');
+
+  document.getElementById('resMontoA').textContent = formatMoney(montoA);
+  document.getElementById('resMontoB').textContent = formatMoney(montoB);
+  document.getElementById('resMontoEmpate').textContent = formatMoney(montoEmpate);
+
+  document.getElementById('resMultiA').textContent = multiA !== null ? multiA.toFixed(2) + 'x' : '—';
+  document.getElementById('resMultiB').textContent = multiB !== null ? multiB.toFixed(2) + 'x' : '—';
+  document.getElementById('resMultiEmpate').textContent = multiEmpate !== null ? multiEmpate.toFixed(2) + 'x' : '—';
 }
 
 // Oculta un dato sensible dejando visibles solo los últimos N caracteres
@@ -57,6 +117,9 @@ function enmascarar(valor, visibles) {
 }
 
 listenApuestas((apuestas) => {
+  apuestasCache = filtrarPorPartido(apuestas, configCache.partidoId);
+  renderResumen();
+
   const cont = document.getElementById('contenedorTabla');
 
   if (apuestas.length === 0) {
@@ -70,7 +133,7 @@ listenApuestas((apuestas) => {
       <td>${escapeHtml(enmascarar(a.cedula, 3))}</td>
       <td>${escapeHtml(enmascarar(a.telefono, 4))}</td>
       <td>${formatMoney(a.monto)}</td>
-      <td><span class="pill">${escapeHtml(etiquetaPrediccion(a.prediccion))}</span></td>
+      <td><span class="pill">${etiquetaPrediccionConBandera(a.prediccion)}</span></td>
       <td><span class="pill ${a.estado === 'verificada' ? 'pill-ok' : 'pill-pending'}">${a.estado === 'verificada' ? 'Verificada' : 'Pendiente'}</span></td>
     </tr>
   `).join('');
