@@ -8,10 +8,26 @@ el bote **en partes iguales entre todos los que acertaron**.
 
 ## Páginas
 
-- `index.html` — Página principal: marcador en vivo del bote y formulario para apostar.
-- `apuestas.html` — Lista transparente de todas las apuestas registradas.
+- `index.html` — Página principal: marcador en vivo del bote y formulario para apostar (con o sin cuenta).
+- `apuestas.html` — Lista transparente de todas las apuestas registradas, con resumen de dinero y multiplicador potencial por equipo.
 - `resultados.html` — Muestra el resultado final y cuánto le toca a cada ganador.
-- `admin.html` — Panel protegido con contraseña para configurar el partido, abrir/cerrar apuestas e ingresar el resultado.
+- `registro.html` — Crear una cuenta (nombre, apellido, cédula, teléfono, correo, país y PIN de 4 dígitos).
+- `login.html` — Iniciar sesión con cédula + PIN.
+- `perfil.html` — Saldo, historial de apuestas, % de aciertos/fallas, y solicitud de recarga de saldo.
+- `admin.html` — Panel protegido con contraseña para configurar el partido, gestionar códigos de acceso, verificar apuestas y recargas, gestionar usuarios, e ingresar el resultado final.
+
+## Cuentas de usuario y billetera (nuevo)
+
+Además de apostar como invitado (con código de acceso, igual que antes), ahora cualquier persona puede **crear una cuenta permanente**:
+
+- Al crear la cuenta, empieza con **saldo $0**.
+- Desde su perfil, puede **solicitar una recarga** de saldo — tú la apruebas desde el admin después de que te paguen por fuera del sistema, y el monto se suma automáticamente a su saldo.
+- Al apostar con su cuenta, el monto se **descuenta de su saldo al momento** (ya no hace falta que verifiques el pago de esa apuesta en particular, porque el dinero ya viene de un saldo que tú mismo aprobaste antes) — pero **todavía necesita un código de acceso** para registrar la apuesta, igual que los invitados.
+- Cuando registras el resultado final del partido, el sistema **acredita automáticamente el premio ganado directo al saldo** de cada ganador que tenga cuenta.
+- El perfil de cada usuario guarda su historial completo de apuestas, cuántas ganó/perdió, y sus porcentajes de aciertos y fallas — pensado para ir creciendo partido tras partido, no solo esta final.
+- Quien prefiera **no registrarse**, puede darle a "Omitir registro y apostar directo" y usar el sistema exactamente como antes (código + datos + verificación manual del pago).
+
+**Nota de seguridad honesta (igual que con la clave de admin):** el login de cédula + PIN no usa autenticación real de servidor (Firebase Authentication) — es una verificación simple contra la base de datos, protegida solo por reglas de Firestore. El PIN se guarda cifrado (hash), nunca en texto plano, pero técnicamente alguien con conocimientos técnicos podría leer la lista de cuentas registradas (nombre, cédula, teléfono, correo) desde la consola del navegador. Para un grupo de amigos esto es un riesgo bajo y razonable; si más adelante quieres subir el nivel de seguridad, Firebase Authentication es el siguiente paso.
 
 ## Paso 1: Crear tu base de datos gratuita en Firebase
 
@@ -101,6 +117,22 @@ service cloud.firestore {
     match /config/{doc} {
       allow read: if true;
       allow write: if true; // ver nota de seguridad abajo
+    }
+    match /usuarios/{cedula} {
+      allow read: if true;
+      allow create: if request.resource.data.saldo == 0
+                    && request.resource.data.nombre is string
+                    && request.resource.data.cedula is string
+                    && request.resource.data.pin is string;
+      allow update, delete: if true; // saldo se ajusta desde apuestas, recargas y el panel admin (ver nota abajo)
+    }
+    match /recargas/{recargaId} {
+      allow read: if true;
+      allow create: if request.resource.data.monto is number
+                    && request.resource.data.monto >= 1
+                    && request.resource.data.monto <= 10000000
+                    && request.resource.data.estado == 'pendiente';
+      allow update, delete: if true; // el panel admin aprueba/rechaza (ver nota abajo)
     }
   }
 }

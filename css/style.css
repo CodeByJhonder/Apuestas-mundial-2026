@@ -166,16 +166,37 @@ nav.tabs a.active {
   margin-bottom: 18px;
 }
 
+.team-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.team-flag {
+  width: 48px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--mid-green);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
 .team-name {
   font-family: var(--font-display);
-  font-size: clamp(18px, 5vw, 26px);
+  font-size: clamp(16px, 4.5vw, 24px);
   max-width: 200px;
+  text-align: center;
 }
 
 .vs-divider {
   font-family: var(--font-display);
   color: var(--gold-dim);
   font-size: 14px;
+}
+
+@media (max-width: 380px) {
+  .team-flag { width: 40px; height: 30px; }
 }
 
 .bote-display {
@@ -383,13 +404,15 @@ tr.winner td { color: var(--gold); }
   border-color: var(--mid-green);
   background: rgba(255, 255, 255, 0.03);
 }
-.pill-ok {
-  border-color: #4CAF50;
-  color: #A5D6A7;
+.pill-reservado {
+  color: #7FB3D5;
+  border-color: #4A7A9C;
+  background: rgba(127, 179, 213, 0.1);
 }
-.pill-pending {
-  border-color: var(--gold-dim);
-  color: var(--gold);
+.pill-danger {
+  color: #E88484;
+  border-color: var(--red-card);
+  background: rgba(158, 42, 43, 0.1);
 }
 
 .empty-state {
@@ -399,6 +422,65 @@ tr.winner td { color: var(--gold); }
 }
 .empty-state .ball { font-size: 32px; display:block; margin-bottom: 10px; }
 
+/* ---------- Resumen por equipo (apuestas.html) ---------- */
+.resumen-equipos {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.resumen-item {
+  text-align: center;
+  background: var(--pitch-light);
+  border: 1px solid var(--mid-green);
+  border-radius: var(--radius);
+  padding: 16px 10px;
+}
+.resumen-nombre {
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--chalk-dim);
+  margin-bottom: 8px;
+}
+.resumen-flag {
+  width: 36px;
+  height: 27px;
+  object-fit: cover;
+  border-radius: 3px;
+  border: 1px solid var(--mid-green);
+  display: block;
+  margin: 0 auto 8px;
+}
+.pill-flag {
+  width: 16px;
+  height: 12px;
+  object-fit: cover;
+  border-radius: 2px;
+  vertical-align: middle;
+  margin-right: 5px;
+  position: relative;
+  top: -1px;
+}
+.resumen-monto {
+  font-family: var(--font-display);
+  font-size: clamp(16px, 4vw, 22px);
+  color: var(--chalk);
+}
+.resumen-multi {
+  font-family: var(--font-display);
+  font-size: 13px;
+  color: var(--gold);
+  margin-top: 6px;
+  letter-spacing: 0.05em;
+}
+
+@media (max-width: 480px) {
+  .pick-group { grid-template-columns: 1fr; }
+  .scoreboard-footer { flex-wrap: wrap; gap: 12px; }
+  .resumen-equipos { grid-template-columns: 1fr; }
+}
+
 footer {
   text-align: center;
   color: var(--chalk-dim);
@@ -406,9 +488,4 @@ footer {
   margin-top: 40px;
   padding-top: 20px;
   border-top: 1px solid var(--mid-green);
-}
-
-@media (max-width: 480px) {
-  .pick-group { grid-template-columns: 1fr; }
-  .scoreboard-footer { flex-wrap: wrap; gap: 12px; }
 }

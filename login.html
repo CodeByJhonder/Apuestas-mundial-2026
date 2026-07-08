@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Iniciar sesión · Quiniela Mundial 2026</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand"><span class="ball">⚽</span> Quiniela Final 2026</div>
+    <nav class="tabs">
+      <a href="index.html">Apostar</a>
+      <a href="apuestas.html">Apuestas</a>
+      <a href="resultados.html">Resultados</a>
+      <a href="perfil.html">Perfil</a>
+      <a href="admin.html">Admin</a>
+    </nav>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="card">
+    <h2>Inicia sesión</h2>
+    <p class="sub">Entra con tu cédula y tu PIN para ver tu perfil, tu saldo y tu historial de apuestas.</p>
+
+    <form id="formLogin">
+      <label for="cedula">Número de cédula</label>
+      <input type="text" id="cedula" required maxlength="20" placeholder="Ej. V-12345678">
+
+      <label for="pin">PIN</label>
+      <input type="password" id="pin" required maxlength="4" minlength="4" inputmode="numeric" pattern="[0-9]{4}" placeholder="Tu PIN de 4 dígitos">
+
+      <button type="submit" id="btnLogin">Entrar</button>
+      <div class="msg" id="msgLogin"></div>
+    </form>
+
+    <p class="sub" style="margin-top:18px; text-align:center;">
+      ¿No tienes cuenta? <a href="registro.html">Regístrate aquí</a> ·
+      <a href="index.html">Apostar sin registrarme</a>
+    </p>
+  </div>
+  <footer>Quiniela de amigos · Final Mundial 2026</footer>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/main.js"></script>
+<script>
+if (sesionActual()) {
+  location.href = 'perfil.html';
+}
+
+document.getElementById('formLogin').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('msgLogin');
+  const btn = document.getElementById('btnLogin');
+
+  const cedula = document.getElementById('cedula').value.trim();
+  const pin = document.getElementById('pin').value.trim();
+
+  if (!cedula || !pin) {
+    mostrarMensaje(msg, 'Completa cédula y PIN.', 'err');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Entrando...';
+
+  try {
+    const doc = await db.collection('usuarios').doc(cedula).get();
+
+    if (!doc.exists) {
+      mostrarMensaje(msg, 'No existe una cuenta con esa cédula. ¿Ya te registraste?', 'err');
+      btn.disabled = false;
+      btn.textContent = 'Entrar';
+      return;
+    }
+
+    if (doc.data().pin !== await hashPin(pin)) {
+      mostrarMensaje(msg, 'PIN incorrecto.', 'err');
+      btn.disabled = false;
+      btn.textContent = 'Entrar';
+      return;
+    }
+
+    guardarSesion(cedula);
+    location.href = 'perfil.html';
+  } catch (err) {
+    mostrarMensaje(msg, 'Error: ' + err.message, 'err');
+    btn.disabled = false;
+    btn.textContent = 'Entrar';
+  }
+});
+</script>
+</body>
+</html>

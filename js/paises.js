@@ -1,0 +1,77 @@
+/* ==========================================================================
+   Lista de países y su código ISO (para mostrar la bandera)
+   Las banderas se muestran usando el servicio gratuito flagcdn.com
+   ========================================================================== */
+
+const PAISES = [
+  { nombre: 'Alemania', codigo: 'de' },
+  { nombre: 'Arabia Saudita', codigo: 'sa' },
+  { nombre: 'Argelia', codigo: 'dz' },
+  { nombre: 'Argentina', codigo: 'ar' },
+  { nombre: 'Australia', codigo: 'au' },
+  { nombre: 'Austria', codigo: 'at' },
+  { nombre: 'Bélgica', codigo: 'be' },
+  { nombre: 'Bolivia', codigo: 'bo' },
+  { nombre: 'Brasil', codigo: 'br' },
+  { nombre: 'Camerún', codigo: 'cm' },
+  { nombre: 'Canadá', codigo: 'ca' },
+  { nombre: 'Catar', codigo: 'qa' },
+  { nombre: 'Chile', codigo: 'cl' },
+  { nombre: 'China', codigo: 'cn' },
+  { nombre: 'Colombia', codigo: 'co' },
+  { nombre: 'Corea del Sur', codigo: 'kr' },
+  { nombre: 'Costa Rica', codigo: 'cr' },
+  { nombre: 'Croacia', codigo: 'hr' },
+  { nombre: 'Curazao', codigo: 'cw' },
+  { nombre: 'Dinamarca', codigo: 'dk' },
+  { nombre: 'Ecuador', codigo: 'ec' },
+  { nombre: 'Egipto', codigo: 'eg' },
+  { nombre: 'El Salvador', codigo: 'sv' },
+  { nombre: 'España', codigo: 'es' },
+  { nombre: 'Estados Unidos', codigo: 'us' },
+  { nombre: 'Francia', codigo: 'fr' },
+  { nombre: 'Gales', codigo: 'gb-wls' },
+  { nombre: 'Ghana', codigo: 'gh' },
+  { nombre: 'Grecia', codigo: 'gr' },
+  { nombre: 'Guatemala', codigo: 'gt' },
+  { nombre: 'Haití', codigo: 'ht' },
+  { nombre: 'Honduras', codigo: 'hn' },
+  { nombre: 'Inglaterra', codigo: 'gb-eng' },
+  { nombre: 'Irán', codigo: 'ir' },
+  { nombre: 'Iraq', codigo: 'iq' },
+  { nombre: 'Italia', codigo: 'it' },
+  { nombre: 'Jamaica', codigo: 'jm' },
+  { nombre: 'Japón', codigo: 'jp' },
+  { nombre: 'Jordania', codigo: 'jo' },
+  { nombre: 'Marruecos', codigo: 'ma' },
+  { nombre: 'México', codigo: 'mx' },
+  { nombre: 'Nigeria', codigo: 'ng' },
+  { nombre: 'Noruega', codigo: 'no' },
+  { nombre: 'Nueva Zelanda', codigo: 'nz' },
+  { nombre: 'Países Bajos', codigo: 'nl' },
+  { nombre: 'Panamá', codigo: 'pa' },
+  { nombre: 'Paraguay', codigo: 'py' },
+  { nombre: 'Perú', codigo: 'pe' },
+  { nombre: 'Polonia', codigo: 'pl' },
+  { nombre: 'Portugal', codigo: 'pt' },
+  { nombre: 'Reino Unido', codigo: 'gb' },
+  { nombre: 'República Checa', codigo: 'cz' },
+  { nombre: 'República Dominicana', codigo: 'do' },
+  { nombre: 'Senegal', codigo: 'sn' },
+  { nombre: 'Serbia', codigo: 'rs' },
+  { nombre: 'Sudáfrica', codigo: 'za' },
+  { nombre: 'Suecia', codigo: 'se' },
+  { nombre: 'Suiza', codigo: 'ch' },
+  { nombre: 'Túnez', codigo: 'tn' },
+  { nombre: 'Turquía', codigo: 'tr' },
+  { nombre: 'Ucrania', codigo: 'ua' },
+  { nombre: 'Uruguay', codigo: 'uy' },
+  { nombre: 'Uzbekistán', codigo: 'uz' },
+  { nombre: 'Venezuela', codigo: 've' }
+];
+
+// Regresa la URL de la imagen de la bandera para un código de país dado
+function urlBandera(codigo) {
+  if (!codigo) return null;
+  return `https://flagcdn.com/w80/${codigo}.png`;
+}

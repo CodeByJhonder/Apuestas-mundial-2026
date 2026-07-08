@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crear cuenta · Quiniela Mundial 2026</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand"><span class="ball">⚽</span> Quiniela Final 2026</div>
+    <nav class="tabs">
+      <a href="index.html">Apostar</a>
+      <a href="apuestas.html">Apuestas</a>
+      <a href="resultados.html">Resultados</a>
+      <a href="perfil.html">Perfil</a>
+      <a href="admin.html">Admin</a>
+    </nav>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="card">
+    <h2>Crea tu cuenta</h2>
+    <p class="sub">Con tu cuenta puedes llevar el historial de todas tus apuestas, ver tu saldo y tus estadísticas de aciertos partido tras partido.</p>
+
+    <form id="formRegistro">
+      <label for="nombre">Nombre</label>
+      <input type="text" id="nombre" required maxlength="30" placeholder="Ej. Juan">
+
+      <label for="apellido">Apellido</label>
+      <input type="text" id="apellido" required maxlength="30" placeholder="Ej. Pérez">
+
+      <label for="cedula">Número de cédula</label>
+      <input type="text" id="cedula" required maxlength="20" placeholder="Ej. V-12345678">
+
+      <label for="telefono">Número de teléfono</label>
+      <input type="text" id="telefono" required maxlength="20" placeholder="Ej. 0414-1234567">
+
+      <label for="correo">Correo electrónico</label>
+      <input type="email" id="correo" required maxlength="60" placeholder="Ej. juan@correo.com">
+
+      <label for="pais">País donde vives</label>
+      <select id="pais" required></select>
+
+      <label for="pin">Crea un PIN de 4 dígitos</label>
+      <input type="password" id="pin" required maxlength="4" minlength="4" inputmode="numeric" pattern="[0-9]{4}" placeholder="Ej. 1234">
+
+      <label for="pinConfirmar">Confirma tu PIN</label>
+      <input type="password" id="pinConfirmar" required maxlength="4" minlength="4" inputmode="numeric" pattern="[0-9]{4}" placeholder="Repite tu PIN">
+      <small style="display:block; color: var(--chalk-dim); font-size: 12px; margin-top: 4px;">Vas a usar tu cédula + este PIN para iniciar sesión la próxima vez. No lo compartas.</small>
+
+      <button type="submit" id="btnRegistrar">Crear cuenta</button>
+      <div class="msg" id="msgRegistro"></div>
+    </form>
+
+    <p class="sub" style="margin-top:18px; text-align:center;">
+      ¿Ya tienes cuenta? <a href="login.html">Inicia sesión</a> ·
+      <a href="index.html">Apostar sin registrarme</a>
+    </p>
+  </div>
+  <footer>Quiniela de amigos · Final Mundial 2026</footer>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/main.js"></script>
+<script src="js/paises.js"></script>
+<script>
+// Llena el selector de país
+document.getElementById('pais').innerHTML = PAISES
+  .slice()
+  .sort((a, b) => a.nombre.localeCompare(b.nombre))
+  .map((p) => `<option value="${p.nombre}">${p.nombre}</option>`)
+  .join('');
+
+// Si ya hay una sesión activa, no tiene sentido volver a registrarse
+if (sesionActual()) {
+  location.href = 'perfil.html';
+}
+
+document.getElementById('formRegistro').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('msgRegistro');
+  const btn = document.getElementById('btnRegistrar');
+
+  const nombre = document.getElementById('nombre').value.trim();
+  const apellido = document.getElementById('apellido').value.trim();
+  const cedula = document.getElementById('cedula').value.trim();
+  const telefono = document.getElementById('telefono').value.trim();
+  const correo = document.getElementById('correo').value.trim();
+  const pais = document.getElementById('pais').value;
+  const pin = document.getElementById('pin').value.trim();
+  const pinConfirmar = document.getElementById('pinConfirmar').value.trim();
+
+  if (!nombre || !apellido || !cedula || !telefono || !correo || !pais || !pin) {
+    mostrarMensaje(msg, 'Completa todos los campos.', 'err');
+    return;
+  }
+  if (!/^\d{4}$/.test(pin)) {
+    mostrarMensaje(msg, 'El PIN debe ser de exactamente 4 dígitos numéricos.', 'err');
+    return;
+  }
+  if (pin !== pinConfirmar) {
+    mostrarMensaje(msg, 'Los dos PIN no coinciden.', 'err');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Creando cuenta...';
+
+  try {
+    const cedulaDoc = db.collection('usuarios').doc(cedula);
+    const existente = await cedulaDoc.get();
+
+    if (existente.exists) {
+      mostrarMensaje(msg, 'Ya existe una cuenta registrada con esa cédula. Si es tuya, inicia sesión.', 'err');
+      btn.disabled = false;
+      btn.textContent = 'Crear cuenta';
+      return;
+    }
+
+    await cedulaDoc.set({
+      nombre, apellido, cedula, telefono, correo, pais,
+      pin: await hashPin(pin),
+      saldo: 0,
+      creado: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    guardarSesion(cedula);
+    location.href = 'perfil.html';
+  } catch (err) {
+    mostrarMensaje(msg, 'Error: ' + err.message, 'err');
+    btn.disabled = false;
+    btn.textContent = 'Crear cuenta';
+  }
+});
+</script>
+</body>
+</html>

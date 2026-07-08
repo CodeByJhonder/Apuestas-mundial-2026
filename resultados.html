@@ -15,6 +15,7 @@
       <a href="index.html">Apostar</a>
       <a href="apuestas.html">Apuestas</a>
       <a href="resultados.html">Resultados</a>
+      <a href="perfil.html">Perfil</a>
       <a href="admin.html">Admin</a>
     </nav>
   </div>
@@ -90,8 +91,9 @@ function render() {
   document.getElementById('nombreB').textContent = configCache.equipoB;
   document.getElementById('ganadorTexto').textContent = etiqueta(configCache.resultado);
 
-  const bote = calcularBote(apuestasCache);
-  const reparto = calcularReparto(apuestasCache, configCache.resultado);
+  const delPartido = filtrarPorPartido(apuestasCache, configCache.partidoId);
+  const bote = calcularBote(delPartido);
+  const reparto = calcularReparto(delPartido, configCache.resultado);
   const multiplicador = reparto.length > 0 ? reparto[0].multiplicador : 0;
 
   document.getElementById('boteTotalFoot').textContent = formatMoney(bote);
