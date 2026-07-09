@@ -123,8 +123,37 @@
     <div class="card">
       <h2>Zona de reinicio</h2>
       <p class="sub">Borra TODAS las apuestas (incluyendo el historial de todos los usuarios), todos los códigos de acceso y el resultado registrado. Esta acción NO se puede deshacer. Úsalo solo para pruebas antes de que arranque la quiniela real — no lo uses una vez que la gente ya tenga historial que quieras conservar.</p>
-      <button id="btnReset" class="btn-danger">Borrar todo (incluye historial)</button>
-      <div class="msg" id="msgReset"></div>
+      <p class="sub" style="color:var(--gold);">Protegida con una clave aparte de la clave de admin, para que no se borre nada por accidente.</p>
+
+      <!-- Puerta de clave, separada de la clave de admin -->
+      <div id="cardClaveReinicio">
+        <form id="formClaveReinicio">
+          <label for="claveReinicio">Clave de la zona de reinicio</label>
+          <input type="password" id="claveReinicio" required>
+          <button type="submit" class="btn-outline">Desbloquear zona de reinicio</button>
+          <div class="msg" id="msgClaveReinicio"></div>
+        </form>
+      </div>
+
+      <!-- Contenido protegido, oculto hasta desbloquear -->
+      <div id="contenidoReinicio" style="display:none;">
+        <button id="btnReset" class="btn-danger">Borrar todo (incluye historial)</button>
+        <div class="msg" id="msgReset"></div>
+
+        <hr style="border-color:var(--mid-green); margin:22px 0;">
+
+        <h2 style="font-size:16px;">Cambiar la clave de esta zona</h2>
+        <form id="formCambiarClaveReinicio">
+          <label for="claveReinicioActual">Clave actual</label>
+          <input type="password" id="claveReinicioActual" required>
+          <label for="claveReinicioNueva">Clave nueva</label>
+          <input type="password" id="claveReinicioNueva" required minlength="4">
+          <label for="claveReinicioConfirmar">Confirmar clave nueva</label>
+          <input type="password" id="claveReinicioConfirmar" required minlength="4">
+          <button type="submit" class="btn-outline">Guardar clave nueva</button>
+          <div class="msg" id="msgCambiarClaveReinicio"></div>
+        </form>
+      </div>
     </div>
   </div>
 
@@ -139,6 +168,55 @@
 <script>
 let configCache = { equipoA: 'Equipo A', equipoB: 'Equipo B', abierta: true, resultado: null };
 let apuestasCache = [];
+let claveReinicioCache = 'J&Qwerty$$.31#31#'; // valor por defecto si nunca se ha guardado una nueva
+
+// Escucha la clave de la zona de reinicio (guardada en Firebase, para poder cambiarla sin tocar código)
+db.collection('config').doc('seguridad').onSnapshot((doc) => {
+  if (doc.exists && doc.data().claveReinicio) {
+    claveReinicioCache = doc.data().claveReinicio;
+  }
+});
+
+document.getElementById('formClaveReinicio').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('msgClaveReinicio');
+  const clave = document.getElementById('claveReinicio').value;
+  if (clave === claveReinicioCache) {
+    document.getElementById('cardClaveReinicio').style.display = 'none';
+    document.getElementById('contenidoReinicio').style.display = 'block';
+  } else {
+    mostrarMensaje(msg, 'Clave incorrecta.', 'err');
+  }
+});
+
+document.getElementById('formCambiarClaveReinicio').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('msgCambiarClaveReinicio');
+  const actual = document.getElementById('claveReinicioActual').value;
+  const nueva = document.getElementById('claveReinicioNueva').value;
+  const confirmar = document.getElementById('claveReinicioConfirmar').value;
+
+  if (actual !== claveReinicioCache) {
+    mostrarMensaje(msg, 'La clave actual no es correcta.', 'err');
+    return;
+  }
+  if (nueva !== confirmar) {
+    mostrarMensaje(msg, 'La clave nueva y su confirmación no coinciden.', 'err');
+    return;
+  }
+  if (nueva.length < 4) {
+    mostrarMensaje(msg, 'La clave nueva debe tener al menos 4 caracteres.', 'err');
+    return;
+  }
+
+  try {
+    await db.collection('config').doc('seguridad').set({ claveReinicio: nueva }, { merge: true });
+    mostrarMensaje(msg, 'Clave de la zona de reinicio actualizada.', 'ok');
+    document.getElementById('formCambiarClaveReinicio').reset();
+  } catch (err) {
+    mostrarMensaje(msg, 'Error: ' + err.message, 'err');
+  }
+});
 
 // Llena los selectores de país con la lista de PAISES (definida en js/paises.js)
 function poblarSelectPaises(selectEl) {
