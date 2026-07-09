@@ -66,6 +66,8 @@
         <button type="submit">Generar códigos</button>
         <div class="msg" id="msgCodigos"></div>
       </form>
+      <button id="btnBorrarCodigos" class="btn-danger" style="margin-top:10px;">Borrar todos los códigos</button>
+      <div class="msg" id="msgBorrarCodigos"></div>
       <div id="listaCodigos" style="margin-top:20px;"></div>
     </div>
 
@@ -112,9 +114,16 @@
     </div>
 
     <div class="card">
+      <h2>Iniciar partido nuevo</h2>
+      <p class="sub">Usa esto cuando quieras armar la quiniela para el SIGUIENTE partido. Limpia el marcador (bote, apuestas activas, resultado) para empezar de cero, pero <strong>conserva para siempre</strong> el historial de apuestas y las estadísticas de cada usuario registrado. Después de darle clic, ve a "Configurar el partido" arriba para elegir los nuevos equipos.</p>
+      <button id="btnNuevoPartido" class="btn-outline">Iniciar partido nuevo (conserva historial)</button>
+      <div class="msg" id="msgNuevoPartido"></div>
+    </div>
+
+    <div class="card">
       <h2>Zona de reinicio</h2>
-      <p class="sub">Borra TODAS las apuestas, todos los códigos de acceso y el resultado registrado. Úsalo solo para empezar de cero (ej. pruebas antes del partido real).</p>
-      <button id="btnReset" class="btn-danger">Borrar todo</button>
+      <p class="sub">Borra TODAS las apuestas (incluyendo el historial de todos los usuarios), todos los códigos de acceso y el resultado registrado. Esta acción NO se puede deshacer. Úsalo solo para pruebas antes de que arranque la quiniela real — no lo uses una vez que la gente ya tenga historial que quieras conservar.</p>
+      <button id="btnReset" class="btn-danger">Borrar todo (incluye historial)</button>
       <div class="msg" id="msgReset"></div>
     </div>
   </div>
@@ -253,9 +262,15 @@ listenCodigos((codigos) => {
 
     return `
       <tr>
-        <td style="font-family:monospace; font-size:16px; letter-spacing:0.1em;">${escapeHtml(c.codigo)}</td>
+        <td>
+          <div style="display:flex; gap:6px; align-items:center;">
+            <input type="text" value="${escapeHtml(c.codigo)}" maxlength="10" style="font-family:monospace; font-size:14px; letter-spacing:0.08em; text-transform:uppercase; width:100px; padding:6px 8px;" data-input-editar="${c.id}">
+            <button class="btn-outline" style="width:auto; margin:0; padding:6px 10px; font-size:11px;" data-guardar-codigo="${c.id}">Guardar</button>
+          </div>
+        </td>
         <td>${estadoHtml}</td>
         <td>${accionHtml}</td>
+        <td><button class="btn-danger" style="width:auto; margin:0; padding:6px 12px; font-size:11px;" data-borrar-codigo="${c.id}">Eliminar</button></td>
       </tr>
     `;
   }).join('');
@@ -263,11 +278,32 @@ listenCodigos((codigos) => {
   cont.innerHTML = `
     <div class="table-scroll">
       <table>
-        <thead><tr><th>Código</th><th>Estado</th><th>Acción</th></tr></thead>
+        <thead><tr><th>Código</th><th>Estado</th><th>Acción</th><th>Eliminar</th></tr></thead>
         <tbody>${filas}</tbody>
       </table>
     </div>
   `;
+
+  cont.querySelectorAll('[data-guardar-codigo]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-guardar-codigo');
+      const input = cont.querySelector(`[data-input-editar="${id}"]`);
+      const nuevoCodigo = input.value.trim().toUpperCase();
+      if (!nuevoCodigo) {
+        input.focus();
+        return;
+      }
+      await db.collection('codigos').doc(id).update({ codigo: nuevoCodigo });
+      mostrarMensaje(document.getElementById('msgCodigos'), `Código actualizado a "${nuevoCodigo}".`, 'ok');
+    });
+  });
+
+  cont.querySelectorAll('[data-borrar-codigo]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!confirm('¿Eliminar este código? Si ya fue usado, esto no afecta la apuesta que se hizo con él, solo borra el registro del código.')) return;
+      await db.collection('codigos').doc(btn.getAttribute('data-borrar-codigo')).delete();
+    });
+  });
 
   cont.querySelectorAll('[data-apartar]').forEach((btn) => {
     btn.addEventListener('click', async () => {
@@ -287,6 +323,22 @@ listenCodigos((codigos) => {
       await db.collection('codigos').doc(btn.getAttribute('data-quitar-reserva')).update({ reservadoPara: firebase.firestore.FieldValue.delete() });
     });
   });
+});
+
+// --- Borrar todos los códigos de una vez (sin afectar apuestas ni usuarios) ---
+document.getElementById('btnBorrarCodigos').addEventListener('click', async () => {
+  const msg = document.getElementById('msgBorrarCodigos');
+  if (!confirm('¿Borrar TODOS los códigos de acceso? Esto no afecta las apuestas ya registradas ni el historial de nadie, solo limpia esta lista.')) return;
+
+  try {
+    const snap = await db.collection('codigos').get();
+    const batch = db.batch();
+    snap.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+    mostrarMensaje(msg, 'Todos los códigos fueron borrados.', 'ok');
+  } catch (err) {
+    mostrarMensaje(msg, 'Error: ' + err.message, 'err');
+  }
 });
 
 // --- Apuestas pendientes de verificar ---
@@ -516,9 +568,26 @@ document.getElementById('formResultado').addEventListener('submit', async (e) =>
   }
 });
 
+document.getElementById('btnNuevoPartido').addEventListener('click', async () => {
+  const msg = document.getElementById('msgNuevoPartido');
+
+  if (!confirm('¿Iniciar un partido nuevo? El marcador, el bote y las apuestas activas se van a limpiar para el siguiente partido, pero el historial de todos los usuarios se conserva para siempre. Después de esto, ve arriba a "Configurar el partido" para elegir los equipos nuevos.')) return;
+
+  try {
+    await db.collection('config').doc('partido').set({
+      partidoId: generarPartidoId(),
+      resultado: null,
+      abierta: true
+    }, { merge: true });
+    mostrarMensaje(msg, '¡Listo! Partido nuevo iniciado. Ahora elige los equipos en "Configurar el partido" y genera códigos de acceso nuevos si hacen falta.', 'ok');
+  } catch (err) {
+    mostrarMensaje(msg, 'Error: ' + err.message, 'err');
+  }
+});
+
 document.getElementById('btnReset').addEventListener('click', async () => {
   const msg = document.getElementById('msgReset');
-  if (!confirm('Esto borrará TODAS las apuestas, TODOS los códigos de acceso y el resultado. ¿Continuar?')) return;
+  if (!confirm('Esto borrará TODAS las apuestas (incluyendo el historial de todos los usuarios), TODOS los códigos de acceso y el resultado. Esta acción NO se puede deshacer. ¿Continuar?')) return;
 
   try {
     const [apuestasSnap, codigosSnap] = await Promise.all([

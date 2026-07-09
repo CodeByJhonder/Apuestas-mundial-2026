@@ -194,6 +194,12 @@ celular.
    (solo se toman en cuenta las apuestas ya verificadas).
 8. El dinero se entrega por fuera del sistema (efectivo, transferencia,
    etc.) — el sistema solo calcula cuánto le toca a cada quien.
+9. **Para el siguiente partido**, entra a `admin.html` → sección "Iniciar
+   partido nuevo" → dale clic ahí (NO uses "Borrar todo", eso sí borra el
+   historial de todos para siempre). Esto limpia el marcador para el
+   partido nuevo pero conserva el historial y las estadísticas de cada
+   usuario registrado. Después, configura los equipos nuevos y genera
+   códigos de acceso nuevos.
 
 ## Reglas de la quiniela (resumen)
 
