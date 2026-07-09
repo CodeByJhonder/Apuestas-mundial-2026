@@ -25,5 +25,5 @@ const db = firebase.firestore();
  
 /* Nombre de la contraseña de administrador.
    CÁMBIALA antes de subir el proyecto a GitHub. */
-const ADMIN_PASSWORD = "123321433";
+const ADMIN_PASSWORD = "J&Qwerty$$.31#";
  
