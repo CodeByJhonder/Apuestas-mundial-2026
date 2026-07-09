@@ -114,6 +114,21 @@
     </div>
 
     <div class="card">
+      <h2>Seguridad: clave de administrador</h2>
+      <p class="sub">Tu clave de acceso al panel ahora se guarda en Firebase (ya no en el archivo del código público de GitHub). Cámbiala aquí cuando quieras, sin tener que tocar ni volver a subir ningún archivo.</p>
+      <form id="formCambiarClaveAdmin">
+        <label for="claveAdminActual">Clave actual</label>
+        <input type="password" id="claveAdminActual" required>
+        <label for="claveAdminNueva">Clave nueva</label>
+        <input type="password" id="claveAdminNueva" required minlength="4">
+        <label for="claveAdminConfirmar">Confirmar clave nueva</label>
+        <input type="password" id="claveAdminConfirmar" required minlength="4">
+        <button type="submit" class="btn-outline">Guardar clave nueva</button>
+        <div class="msg" id="msgCambiarClaveAdmin"></div>
+      </form>
+    </div>
+
+    <div class="card">
       <h2>Iniciar partido nuevo</h2>
       <p class="sub">Usa esto cuando quieras armar la quiniela para el SIGUIENTE partido. Limpia el marcador (bote, apuestas activas, resultado) para empezar de cero, pero <strong>conserva para siempre</strong> el historial de apuestas y las estadísticas de cada usuario registrado. Después de darle clic, ve a "Configurar el partido" arriba para elegir los nuevos equipos.</p>
       <button id="btnNuevoPartido" class="btn-outline">Iniciar partido nuevo (conserva historial)</button>
@@ -169,11 +184,16 @@
 let configCache = { equipoA: 'Equipo A', equipoB: 'Equipo B', abierta: true, resultado: null };
 let apuestasCache = [];
 let claveReinicioCache = 'J&Qwerty$$.31#31#'; // valor por defecto si nunca se ha guardado una nueva
+let adminPasswordCache = (typeof ADMIN_PASSWORD !== 'undefined') ? ADMIN_PASSWORD : 'cambia-esta-clave'; // respaldo inicial desde firebase-config.js
 
-// Escucha la clave de la zona de reinicio (guardada en Firebase, para poder cambiarla sin tocar código)
+// Escucha la clave de la zona de reinicio Y la clave de admin (guardadas en Firebase,
+// para poder cambiarlas sin tocar código ni volver a subir archivos a GitHub)
 db.collection('config').doc('seguridad').onSnapshot((doc) => {
   if (doc.exists && doc.data().claveReinicio) {
     claveReinicioCache = doc.data().claveReinicio;
+  }
+  if (doc.exists && doc.data().adminPassword) {
+    adminPasswordCache = doc.data().adminPassword;
   }
 });
 
@@ -230,7 +250,7 @@ document.getElementById('formLogin').addEventListener('submit', (e) => {
   e.preventDefault();
   const clave = document.getElementById('clave').value;
   const msg = document.getElementById('msgLogin');
-  if (clave === ADMIN_PASSWORD) {
+  if (clave === adminPasswordCache) {
     document.getElementById('cardLogin').style.display = 'none';
     document.getElementById('panelAdmin').style.display = 'block';
   } else {
@@ -641,6 +661,35 @@ document.getElementById('formResultado').addEventListener('submit', async (e) =>
 
     await batch.commit();
     mostrarMensaje(msg, 'Resultado guardado y premios acreditados a las cuentas registradas. Revisa la página de Resultados.', 'ok');
+  } catch (err) {
+    mostrarMensaje(msg, 'Error: ' + err.message, 'err');
+  }
+});
+
+document.getElementById('formCambiarClaveAdmin').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('msgCambiarClaveAdmin');
+  const actual = document.getElementById('claveAdminActual').value;
+  const nueva = document.getElementById('claveAdminNueva').value;
+  const confirmar = document.getElementById('claveAdminConfirmar').value;
+
+  if (actual !== adminPasswordCache) {
+    mostrarMensaje(msg, 'La clave actual no es correcta.', 'err');
+    return;
+  }
+  if (nueva !== confirmar) {
+    mostrarMensaje(msg, 'La clave nueva y su confirmación no coinciden.', 'err');
+    return;
+  }
+  if (nueva.length < 4) {
+    mostrarMensaje(msg, 'La clave nueva debe tener al menos 4 caracteres.', 'err');
+    return;
+  }
+
+  try {
+    await db.collection('config').doc('seguridad').set({ adminPassword: nueva }, { merge: true });
+    mostrarMensaje(msg, 'Clave de administrador actualizada. Úsala la próxima vez que entres.', 'ok');
+    document.getElementById('formCambiarClaveAdmin').reset();
   } catch (err) {
     mostrarMensaje(msg, 'Error: ' + err.message, 'err');
   }
