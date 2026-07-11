@@ -55,6 +55,13 @@
       <div class="empty-state"><span class="ball">⚽</span>Cargando apuestas...</div>
     </div>
   </div>
+
+  <div class="card" id="cardHistorialPartidos" style="display:none;">
+    <h2>Historial de partidos anteriores</h2>
+    <p class="sub">Apuestas de partidos ya cerrados, ordenadas del más reciente al más antiguo. Se conservan para siempre, aunque abras un partido nuevo.</p>
+    <div id="contenedorHistorialPartidos"></div>
+  </div>
+
   <footer>Quiniela de amigos · Final Mundial 2026</footer>
 </div>
 
@@ -73,14 +80,31 @@ listenConfig((config) => {
   document.getElementById('resNombreB').textContent = config.equipoB;
   mostrarBandera('resBanderaA', config.equipoACodigo);
   mostrarBandera('resBanderaB', config.equipoBCodigo);
+  apuestasCache = filtrarPorPartido(apuestasCrudas, configCache.partidoId);
   renderResumen();
+  renderTabla();
+  renderHistorialPartidos();
 });
 
-// Regresa un HTML pequeño de bandera + nombre para usar dentro de la tabla
-function etiquetaPrediccionConBandera(p) {
-  if (p === 'A') return htmlBanderaTexto(configCache.equipoACodigo, configCache.equipoA);
-  if (p === 'B') return htmlBanderaTexto(configCache.equipoBCodigo, configCache.equipoB);
-  return 'Empate';
+// Regresa un HTML pequeño de bandera + nombre para usar dentro de la tabla.
+// Usa el snapshot guardado en la PROPIA apuesta (no la configuración en vivo),
+// para que cada apuesta siempre muestre el equipo con el que realmente se hizo,
+// incluso si después se configuran equipos distintos para un partido nuevo.
+function etiquetaPrediccionConBandera(a) {
+  if (a.prediccion === 'EMPATE') return 'Empate';
+  if (a.prediccion === 'A') {
+    return htmlBanderaTexto(
+      a.equipoACodigoSnapshot || configCache.equipoACodigo,
+      a.equipoANombreSnapshot || configCache.equipoA
+    );
+  }
+  if (a.prediccion === 'B') {
+    return htmlBanderaTexto(
+      a.equipoBCodigoSnapshot || configCache.equipoBCodigo,
+      a.equipoBNombreSnapshot || configCache.equipoB
+    );
+  }
+  return '';
 }
 
 function htmlBanderaTexto(codigo, texto) {
@@ -116,24 +140,21 @@ function enmascarar(valor, visibles) {
   return '*'.repeat(ocultos) + str.slice(-visibles);
 }
 
-listenApuestas((apuestas) => {
-  apuestasCache = filtrarPorPartido(apuestas, configCache.partidoId);
-  renderResumen();
-
+function renderTabla() {
   const cont = document.getElementById('contenedorTabla');
 
-  if (apuestas.length === 0) {
-    cont.innerHTML = '<div class="empty-state"><span class="ball">⚽</span>Todavía no hay apuestas registradas.</div>';
+  if (apuestasCache.length === 0) {
+    cont.innerHTML = '<div class="empty-state"><span class="ball">⚽</span>Todavía no hay apuestas registradas para este partido.</div>';
     return;
   }
 
-  let filas = apuestas.map((a) => `
+  let filas = apuestasCache.map((a) => `
     <tr>
       <td>${escapeHtml(a.nombre)}</td>
       <td>${escapeHtml(enmascarar(a.cedula, 3))}</td>
       <td>${escapeHtml(enmascarar(a.telefono, 4))}</td>
       <td>${formatMoney(a.monto)}</td>
-      <td><span class="pill">${etiquetaPrediccionConBandera(a.prediccion)}</span></td>
+      <td><span class="pill">${etiquetaPrediccionConBandera(a)}</span></td>
       <td><span class="pill ${a.estado === 'verificada' ? 'pill-ok' : 'pill-pending'}">${a.estado === 'verificada' ? 'Verificada' : 'Pendiente'}</span></td>
     </tr>
   `).join('');
@@ -148,6 +169,96 @@ listenApuestas((apuestas) => {
       </table>
     </div>
   `;
+}
+
+// Formatea la fecha de una apuesta (a partir de su timestamp de Firestore)
+function formatearFecha(timestamp) {
+  const fecha = timestamp && typeof timestamp.toDate === 'function' ? timestamp.toDate() : new Date();
+  return fecha.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+// Agrupa y muestra las apuestas de partidos anteriores (ya no del partido actual),
+// ordenadas del más reciente al más antiguo. Se conservan para siempre.
+function renderHistorialPartidos() {
+  const cardHistorial = document.getElementById('cardHistorialPartidos');
+  const cont = document.getElementById('contenedorHistorialPartidos');
+
+  // Solo hay "anteriores" si el partido actual ya tiene un identificador propio
+  // (es decir, si ya se usó "Iniciar partido nuevo" al menos una vez)
+  if (!configCache.partidoId) {
+    cardHistorial.style.display = 'none';
+    return;
+  }
+
+  const anteriores = apuestasCrudas.filter((a) => a.partidoId !== configCache.partidoId);
+  if (anteriores.length === 0) {
+    cardHistorial.style.display = 'none';
+    return;
+  }
+  cardHistorial.style.display = 'block';
+
+  // Agrupa por partidoId (o por una clave fija si son de antes de tener partidoId)
+  const grupos = {};
+  anteriores.forEach((a) => {
+    const clave = a.partidoId || 'sin-identificador';
+    if (!grupos[clave]) grupos[clave] = [];
+    grupos[clave].push(a);
+  });
+
+  // Ordena cada grupo por fecha, y ordena los grupos del más reciente al más antiguo
+  const listaGrupos = Object.values(grupos).map((apuestasGrupo) => {
+    apuestasGrupo.sort((a, b) => (a.timestamp?.toMillis?.() || 0) - (b.timestamp?.toMillis?.() || 0));
+    const primera = apuestasGrupo[0];
+    return {
+      equipoA: primera.equipoANombreSnapshot || 'Equipo A',
+      equipoB: primera.equipoBNombreSnapshot || 'Equipo B',
+      fecha: formatearFecha(primera.timestamp),
+      ultimoTimestamp: apuestasGrupo[apuestasGrupo.length - 1].timestamp?.toMillis?.() || 0,
+      apuestas: apuestasGrupo
+    };
+  });
+  listaGrupos.sort((a, b) => b.ultimoTimestamp - a.ultimoTimestamp);
+
+  cont.innerHTML = listaGrupos.map((grupo) => {
+    const filas = grupo.apuestas.map((a) => {
+      const prediccionTexto = a.prediccion === 'A' ? grupo.equipoA : (a.prediccion === 'B' ? grupo.equipoB : 'Empate');
+      const resultadoTexto = a.resultado
+        ? (a.resultado === 'A' ? grupo.equipoA : (a.resultado === 'B' ? grupo.equipoB : 'Empate'))
+        : '—';
+      return `
+        <tr>
+          <td>${escapeHtml(a.nombre)}</td>
+          <td>${formatMoney(a.monto)}</td>
+          <td>${escapeHtml(prediccionTexto)}</td>
+          <td><span class="pill ${a.estado === 'verificada' ? 'pill-ok' : 'pill-pending'}">${a.estado === 'verificada' ? 'Verificada' : 'Pendiente'}</span></td>
+          <td>${escapeHtml(resultadoTexto)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    return `
+      <div style="margin-bottom:28px;">
+        <h3 style="font-size:16px; margin-bottom:4px;">${escapeHtml(grupo.equipoA)} vs ${escapeHtml(grupo.equipoB)}</h3>
+        <p class="sub" style="margin-bottom:12px;">${grupo.fecha} · ${grupo.apuestas.length} apuesta${grupo.apuestas.length === 1 ? '' : 's'}</p>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Nombre</th><th>Aportó</th><th>Predicción</th><th>Estado</th><th>Resultado</th></tr></thead>
+            <tbody>${filas}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+let apuestasCrudas = [];
+
+listenApuestas((apuestas) => {
+  apuestasCrudas = apuestas;
+  apuestasCache = filtrarPorPartido(apuestasCrudas, configCache.partidoId);
+  renderResumen();
+  renderTabla();
+  renderHistorialPartidos();
 });
 
 function escapeHtml(str) {

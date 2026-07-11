@@ -84,6 +84,14 @@
     </div>
 
     <div class="card">
+      <h2>Gestión de apuestas registradas</h2>
+      <p class="sub">Elimina una apuesta si alguien se equivocó al escribirla (por ejemplo, un monto mal escrito). Funciona con apuestas del partido actual y de partidos ya archivados. Si la apuesta se pagó con saldo de una cuenta, el dinero se devuelve automáticamente (y si ya tenía un premio acreditado, se descuenta).</p>
+      <label for="selectPartidoGestion">Elige el partido</label>
+      <select id="selectPartidoGestion"></select>
+      <div id="listaGestionApuestas" style="margin-top:16px;"></div>
+    </div>
+
+    <div class="card">
       <h2>Gestión de usuarios</h2>
       <p class="sub">Cuentas registradas, su saldo actual y sus datos de contacto. Puedes ajustar un saldo manualmente si necesitas corregir algo.</p>
       <div id="listaUsuarios"><p class="sub">Cargando...</p></div>
@@ -115,17 +123,45 @@
 
     <div class="card">
       <h2>Seguridad: clave de administrador</h2>
-      <p class="sub">Tu clave de acceso al panel ahora se guarda en Firebase (ya no en el archivo del código público de GitHub). Cámbiala aquí cuando quieras, sin tener que tocar ni volver a subir ningún archivo.</p>
-      <form id="formCambiarClaveAdmin">
-        <label for="claveAdminActual">Clave actual</label>
-        <input type="password" id="claveAdminActual" required>
-        <label for="claveAdminNueva">Clave nueva</label>
-        <input type="password" id="claveAdminNueva" required minlength="4">
-        <label for="claveAdminConfirmar">Confirmar clave nueva</label>
-        <input type="password" id="claveAdminConfirmar" required minlength="4">
-        <button type="submit" class="btn-outline">Guardar clave nueva</button>
-        <div class="msg" id="msgCambiarClaveAdmin"></div>
-      </form>
+      <p class="sub">Tu clave de acceso al panel ahora se guarda en Firebase (ya no en el archivo del código público de GitHub). Esta sección está protegida con una clave aparte, para que no cualquiera que sepa tu clave de admin pueda además cambiarla.</p>
+
+      <!-- Puerta de clave, separada de la clave de admin y de la de reinicio -->
+      <div id="cardClaveCambioAdmin">
+        <form id="formClaveCambioAdmin">
+          <label for="claveCambioAdmin">Clave para acceder a esta sección</label>
+          <input type="password" id="claveCambioAdmin" required>
+          <button type="submit" class="btn-outline">Desbloquear</button>
+          <div class="msg" id="msgClaveCambioAdmin"></div>
+        </form>
+      </div>
+
+      <!-- Contenido protegido, oculto hasta desbloquear -->
+      <div id="contenidoCambioAdmin" style="display:none;">
+        <form id="formCambiarClaveAdmin">
+          <label for="claveAdminActual">Clave de admin actual</label>
+          <input type="password" id="claveAdminActual" required>
+          <label for="claveAdminNueva">Clave de admin nueva</label>
+          <input type="password" id="claveAdminNueva" required minlength="4">
+          <label for="claveAdminConfirmar">Confirmar clave de admin nueva</label>
+          <input type="password" id="claveAdminConfirmar" required minlength="4">
+          <button type="submit" class="btn-outline">Guardar clave de admin nueva</button>
+          <div class="msg" id="msgCambiarClaveAdmin"></div>
+        </form>
+
+        <hr style="border-color:var(--mid-green); margin:22px 0;">
+
+        <h2 style="font-size:16px;">Cambiar la clave de esta sección</h2>
+        <form id="formCambiarClaveCambioAdmin">
+          <label for="claveCambioAdminActual">Clave actual de esta sección</label>
+          <input type="password" id="claveCambioAdminActual" required>
+          <label for="claveCambioAdminNueva">Clave nueva</label>
+          <input type="password" id="claveCambioAdminNueva" required minlength="4">
+          <label for="claveCambioAdminConfirmar">Confirmar clave nueva</label>
+          <input type="password" id="claveCambioAdminConfirmar" required minlength="4">
+          <button type="submit" class="btn-outline">Guardar clave nueva de esta sección</button>
+          <div class="msg" id="msgCambiarClaveCambioAdmin"></div>
+        </form>
+      </div>
     </div>
 
     <div class="card">
@@ -185,15 +221,20 @@ let configCache = { equipoA: 'Equipo A', equipoB: 'Equipo B', abierta: true, res
 let apuestasCache = [];
 let claveReinicioCache = 'J&Qwerty$$.31#31#'; // valor por defecto si nunca se ha guardado una nueva
 let adminPasswordCache = (typeof ADMIN_PASSWORD !== 'undefined') ? ADMIN_PASSWORD : 'cambia-esta-clave'; // respaldo inicial desde firebase-config.js
+let claveCambioAdminCache = 'CambiaEsto#Admin31'; // valor por defecto si nunca se ha guardado una nueva
 
-// Escucha la clave de la zona de reinicio Y la clave de admin (guardadas en Firebase,
-// para poder cambiarlas sin tocar código ni volver a subir archivos a GitHub)
+// Escucha la clave de la zona de reinicio, la clave de admin, Y la clave para
+// poder cambiar la clave de admin (todas guardadas en Firebase, para poder
+// cambiarlas sin tocar código ni volver a subir archivos a GitHub)
 db.collection('config').doc('seguridad').onSnapshot((doc) => {
   if (doc.exists && doc.data().claveReinicio) {
     claveReinicioCache = doc.data().claveReinicio;
   }
   if (doc.exists && doc.data().adminPassword) {
     adminPasswordCache = doc.data().adminPassword;
+  }
+  if (doc.exists && doc.data().claveCambioAdmin) {
+    claveCambioAdminCache = doc.data().claveCambioAdmin;
   }
 });
 
@@ -274,6 +315,7 @@ listenConfig((config) => {
     estadoP.textContent = 'Las apuestas están CERRADAS. Nadie puede registrar apuestas nuevas.';
     btnToggle.textContent = 'Reabrir apuestas';
   }
+  renderGestionApuestas();
 });
 
 document.getElementById('formEquipos').addEventListener('submit', async (e) => {
@@ -439,9 +481,142 @@ document.getElementById('btnBorrarCodigos').addEventListener('click', async () =
   }
 });
 
+// --- Gestión de apuestas registradas (partido actual + archivados) ---
+let seleccionGestion = 'actual';
+let gruposGestionCache = {};
+
+function formatearFechaGestion(timestamp) {
+  const fecha = timestamp && typeof timestamp.toDate === 'function' ? timestamp.toDate() : new Date();
+  return fecha.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function renderGestionApuestas() {
+  const selectEl = document.getElementById('selectPartidoGestion');
+  if (!selectEl) return;
+
+  const actuales = filtrarPorPartido(apuestasCache, configCache.partidoId);
+  const archivadas = apuestasCache.filter((a) => !actuales.includes(a));
+
+  gruposGestionCache = {
+    actual: {
+      etiqueta: `Partido actual: ${configCache.equipoA || 'Equipo A'} vs ${configCache.equipoB || 'Equipo B'}`,
+      equipoA: configCache.equipoA,
+      equipoB: configCache.equipoB,
+      apuestas: actuales
+    }
+  };
+
+  const gruposArchivados = {};
+  archivadas.forEach((a) => {
+    const clave = a.partidoId || 'sin-identificador';
+    if (!gruposArchivados[clave]) gruposArchivados[clave] = [];
+    gruposArchivados[clave].push(a);
+  });
+
+  const clavesOrdenadas = Object.keys(gruposArchivados).sort((a, b) => {
+    const maxA = Math.max(...gruposArchivados[a].map((x) => x.timestamp?.toMillis?.() || 0));
+    const maxB = Math.max(...gruposArchivados[b].map((x) => x.timestamp?.toMillis?.() || 0));
+    return maxB - maxA;
+  });
+
+  clavesOrdenadas.forEach((clave) => {
+    const grupo = gruposArchivados[clave];
+    const primera = grupo[0];
+    gruposGestionCache[clave] = {
+      etiqueta: `${primera.equipoANombreSnapshot || 'Equipo A'} vs ${primera.equipoBNombreSnapshot || 'Equipo B'} — ${formatearFechaGestion(primera.timestamp)}`,
+      equipoA: primera.equipoANombreSnapshot,
+      equipoB: primera.equipoBNombreSnapshot,
+      apuestas: grupo
+    };
+  });
+
+  if (!gruposGestionCache[seleccionGestion]) seleccionGestion = 'actual';
+
+  selectEl.innerHTML = Object.keys(gruposGestionCache).map((clave) =>
+    `<option value="${clave}" ${clave === seleccionGestion ? 'selected' : ''}>${escapeHtml(gruposGestionCache[clave].etiqueta)}</option>`
+  ).join('');
+
+  selectEl.onchange = () => {
+    seleccionGestion = selectEl.value;
+    renderTablaGestion();
+  };
+
+  renderTablaGestion();
+}
+
+function renderTablaGestion() {
+  const cont = document.getElementById('listaGestionApuestas');
+  const grupo = gruposGestionCache[seleccionGestion];
+
+  if (!grupo || grupo.apuestas.length === 0) {
+    cont.innerHTML = '<p class="sub">No hay apuestas registradas en este partido.</p>';
+    return;
+  }
+
+  const filas = grupo.apuestas.map((a) => {
+    const prediccionTexto = a.prediccion === 'A' ? (grupo.equipoA || 'Equipo A') : (a.prediccion === 'B' ? (grupo.equipoB || 'Equipo B') : 'Empate');
+    return `
+      <tr>
+        <td>${escapeHtml(a.nombre)}${a.usuarioCedula ? ' <span class="pill pill-reservado" style="font-size:10px;">Cuenta</span>' : ''}</td>
+        <td>${formatMoney(a.monto)}</td>
+        <td>${escapeHtml(prediccionTexto)}</td>
+        <td><span class="pill ${a.estado === 'verificada' ? 'pill-ok' : 'pill-pending'}">${a.estado === 'verificada' ? 'Verificada' : 'Pendiente'}</span></td>
+        <td><button class="btn-danger" style="width:auto; margin:0; padding:6px 12px; font-size:11px;" data-eliminar-apuesta="${a.id}">Eliminar</button></td>
+      </tr>
+    `;
+  }).join('');
+
+  cont.innerHTML = `
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Nombre</th><th>Aportó</th><th>Predicción</th><th>Estado</th><th>Eliminar</th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+    </div>
+  `;
+
+  cont.querySelectorAll('[data-eliminar-apuesta]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-eliminar-apuesta');
+      const apuesta = grupo.apuestas.find((x) => x.id === id);
+      if (!apuesta) return;
+
+      const advertenciaSaldo = apuesta.usuarioCedula
+        ? ` El saldo de ${apuesta.nombre} se ajustará automáticamente (se devuelve lo apostado${apuesta.premioGanado ? ' y se descuenta el premio que ya se le había acreditado' : ''}).`
+        : '';
+
+      if (!confirm(`¿Eliminar esta apuesta de ${apuesta.nombre} por ${formatMoney(apuesta.monto)}? Esta acción no se puede deshacer.${advertenciaSaldo}`)) return;
+
+      try {
+        const batch = db.batch();
+        batch.delete(db.collection('apuestas').doc(id));
+
+        if (apuesta.usuarioCedula) {
+          const ajuste = Number(apuesta.monto || 0) - Number(apuesta.premioGanado || 0);
+          batch.update(db.collection('usuarios').doc(apuesta.usuarioCedula), {
+            saldo: firebase.firestore.FieldValue.increment(ajuste)
+          });
+        }
+
+        await batch.commit();
+
+        if (apuesta.codigoUsado) {
+          const codigosSnap = await db.collection('codigos').where('codigo', '==', apuesta.codigoUsado).limit(1).get();
+          if (!codigosSnap.empty) {
+            await codigosSnap.docs[0].ref.update({ usado: false, usadoPor: firebase.firestore.FieldValue.delete() });
+          }
+        }
+      } catch (err) {
+        alert('Error al eliminar: ' + err.message);
+      }
+    });
+  });
+}
+
 // --- Apuestas pendientes de verificar ---
 listenApuestas((apuestas) => {
   apuestasCache = apuestas;
+  renderGestionApuestas();
   const pendientes = apuestas.filter((a) => a.estado !== 'verificada');
   const cont = document.getElementById('listaPendientes');
 
@@ -666,6 +841,18 @@ document.getElementById('formResultado').addEventListener('submit', async (e) =>
   }
 });
 
+document.getElementById('formClaveCambioAdmin').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('msgClaveCambioAdmin');
+  const clave = document.getElementById('claveCambioAdmin').value;
+  if (clave === claveCambioAdminCache) {
+    document.getElementById('cardClaveCambioAdmin').style.display = 'none';
+    document.getElementById('contenidoCambioAdmin').style.display = 'block';
+  } else {
+    mostrarMensaje(msg, 'Clave incorrecta.', 'err');
+  }
+});
+
 document.getElementById('formCambiarClaveAdmin').addEventListener('submit', async (e) => {
   e.preventDefault();
   const msg = document.getElementById('msgCambiarClaveAdmin');
@@ -674,7 +861,7 @@ document.getElementById('formCambiarClaveAdmin').addEventListener('submit', asyn
   const confirmar = document.getElementById('claveAdminConfirmar').value;
 
   if (actual !== adminPasswordCache) {
-    mostrarMensaje(msg, 'La clave actual no es correcta.', 'err');
+    mostrarMensaje(msg, 'La clave de admin actual no es correcta.', 'err');
     return;
   }
   if (nueva !== confirmar) {
@@ -690,6 +877,35 @@ document.getElementById('formCambiarClaveAdmin').addEventListener('submit', asyn
     await db.collection('config').doc('seguridad').set({ adminPassword: nueva }, { merge: true });
     mostrarMensaje(msg, 'Clave de administrador actualizada. Úsala la próxima vez que entres.', 'ok');
     document.getElementById('formCambiarClaveAdmin').reset();
+  } catch (err) {
+    mostrarMensaje(msg, 'Error: ' + err.message, 'err');
+  }
+});
+
+document.getElementById('formCambiarClaveCambioAdmin').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('msgCambiarClaveCambioAdmin');
+  const actual = document.getElementById('claveCambioAdminActual').value;
+  const nueva = document.getElementById('claveCambioAdminNueva').value;
+  const confirmar = document.getElementById('claveCambioAdminConfirmar').value;
+
+  if (actual !== claveCambioAdminCache) {
+    mostrarMensaje(msg, 'La clave actual de esta sección no es correcta.', 'err');
+    return;
+  }
+  if (nueva !== confirmar) {
+    mostrarMensaje(msg, 'La clave nueva y su confirmación no coinciden.', 'err');
+    return;
+  }
+  if (nueva.length < 4) {
+    mostrarMensaje(msg, 'La clave nueva debe tener al menos 4 caracteres.', 'err');
+    return;
+  }
+
+  try {
+    await db.collection('config').doc('seguridad').set({ claveCambioAdmin: nueva }, { merge: true });
+    mostrarMensaje(msg, 'Clave de esta sección actualizada.', 'ok');
+    document.getElementById('formCambiarClaveCambioAdmin').reset();
   } catch (err) {
     mostrarMensaje(msg, 'Error: ' + err.message, 'err');
   }
