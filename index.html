@@ -313,6 +313,8 @@ document.getElementById('formApuesta').addEventListener('submit', async (e) => {
         partidoId: configCache.partidoId || null,
         equipoANombreSnapshot: configCache.equipoA || null,
         equipoBNombreSnapshot: configCache.equipoB || null,
+        equipoACodigoSnapshot: configCache.equipoACodigo || null,
+        equipoBCodigoSnapshot: configCache.equipoBCodigo || null,
         usuarioCedula: usuarioCache ? usuarioCache.cedula : null,
         timestamp: firebase.firestore.FieldValue.serverTimestamp()
       });
