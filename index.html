@@ -93,7 +93,7 @@
         <input type="text" id="direccion" required maxlength="100" placeholder="Ej. Calle 5, Casa 12, Elorza">
 
         <label for="monto" id="labelMonto">Monto que aportas (Solo Dólares)</label>
-        <input type="number" id="monto" required min="1" max="10000000" step="any" placeholder="Ej. 100">
+        <input type="text" inputmode="decimal" id="monto" required placeholder="Ej. 1,000,000">
         <small style="display:block; color: var(--chalk-dim); font-size: 12px; margin-top: 4px;" id="ayudaMonto">Mínimo $1 — máximo $10,000,000</small>
 
         <label for="codigoAcceso">Código de acceso</label>
@@ -131,6 +131,25 @@
 <script src="js/paises.js"></script>
 <script>
 let apuestasCache = [];
+
+// Formatea el campo de monto con comas de miles mientras el usuario escribe
+// (ej. escribe "1000000" y en pantalla se ve "1,000,000"), sin afectar el
+// valor numérico real que se usa para calcular y guardar la apuesta.
+const inputMonto = document.getElementById('monto');
+inputMonto.addEventListener('input', () => {
+  const cursorAlFinal = inputMonto.selectionEnd === inputMonto.value.length;
+  let valor = inputMonto.value.replace(/[^\d.]/g, ''); // solo dígitos y un punto decimal
+
+  const partes = valor.split('.');
+  let entero = partes[0] || '';
+  let decimales = partes.length > 1 ? '.' + partes.slice(1).join('').slice(0, 2) : '';
+
+  entero = entero.replace(/^0+(?=\d)/, ''); // sin ceros a la izquierda
+  const enteroFormateado = entero.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+  inputMonto.value = enteroFormateado + decimales;
+  if (cursorAlFinal) inputMonto.setSelectionRange(inputMonto.value.length, inputMonto.value.length);
+});
 let configCache = {};
 let usuarioCache = null;
 const cedulaSesion = sesionActual();
@@ -172,7 +191,6 @@ if (cedulaSesion) {
     document.getElementById('labelMonto').textContent = 'Monto que aportas (de tu saldo)';
     document.getElementById('ayudaMonto').textContent = `Saldo disponible: ${formatMoney(usuario.saldo)} — no puedes apostar más de eso.`;
     document.getElementById('subFormulario').textContent = 'Necesitas un código de acceso que te haya dado el administrador. El monto se descuenta de tu saldo al confirmar.';
-    document.getElementById('monto').removeAttribute('max'); // con cuenta, el único límite real es tu saldo
   });
 }
 
@@ -235,7 +253,7 @@ document.getElementById('formApuesta').addEventListener('submit', async (e) => {
   const cedula = document.getElementById('cedula').value.trim();
   const telefono = document.getElementById('telefono').value.trim();
   const direccion = document.getElementById('direccion').value.trim();
-  const monto = parseFloat(document.getElementById('monto').value);
+  const monto = parseFloat(document.getElementById('monto').value.replace(/,/g, ''));
   const codigo = document.getElementById('codigoAcceso').value.trim().toUpperCase();
   const prediccionEl = document.querySelector('input[name="prediccion"]:checked');
 
