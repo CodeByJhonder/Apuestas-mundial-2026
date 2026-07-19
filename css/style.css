@@ -1,37 +1,102 @@
 /* ==========================================================================
-   Quiniela Mundial 2026 — Tema "Marcador de estadio"
+   Quiniela Mundial 2026 — Tema "Estadio Orbital"
+   Estética espacial: paneles de vidrio flotando sobre un fondo profundo,
+   con resplandores ambientales y una ligera inclinación 3D al mover el mouse.
    ========================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Work+Sans:wght@400;500;600&display=swap');
 
 :root {
-  --pitch-dark: #0B2818;
-  --pitch: #14351F;
-  --pitch-light: #1B4332;
-  --chalk: #F1FAEE;
-  --chalk-dim: #C9D8CE;
-  --gold: #E9C46A;
-  --gold-dim: #A88B4A;
-  --red-card: #9E2A2B;
-  --mid-green: #2D6A4F;
+  /* Fondo profundo: negro y azul marino de gala */
+  --void-1: #030304;
+  --void-2: #060608;
+  --void-3: #0A0C14;
+
+  /* Vidrio (los paneles flotantes), tinte azul marino */
+  --glass-fill: rgba(12, 13, 18, 0.55);
+  --glass-fill-strong: rgba(16, 18, 26, 0.68);
+  --glass-border: rgba(255, 255, 255, 0.14);
+  --glass-border-bright: rgba(212, 175, 55, 0.38);
+
+  /* Acentos: dorado como color de gala, azul marino como segundo acento */
+  --gold: #E3BE5C;
+  --gold-dim: #A6832F;
+  --navy-accent: #35519E;
+  --navy-accent-dim: #1E2F63;
+  --red-card: #E05555;
+
+  --chalk: #F7F6F2;
+  --chalk-dim: #B7BAC9;
 
   --font-display: 'Oswald', sans-serif;
   --font-body: 'Work Sans', sans-serif;
 
-  --radius: 6px;
+  --radius: 18px;
+  --radius-sm: 12px;
+
+  /* compatibilidad con nombres antiguos usados en algunos estilos */
+  --pitch-dark: var(--void-1);
+  --pitch: var(--glass-fill);
+  --pitch-light: var(--glass-fill-strong);
+  --mid-green: var(--glass-border);
+  --red-card-old: var(--red-card);
 }
 
 * { box-sizing: border-box; }
 
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+html { scroll-behavior: smooth; }
+
 body {
   margin: 0;
-  background: var(--pitch-dark);
-  background-image:
-    repeating-linear-gradient(0deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 80px);
+  min-height: 100vh;
   color: var(--chalk);
   font-family: var(--font-body);
-  min-height: 100vh;
   line-height: 1.5;
+  position: relative;
+  background: var(--void-1);
+  overflow-x: hidden;
+}
+
+/* ---------- El fondo: profundidad con resplandores flotantes ---------- */
+body::before, body::after {
+  content: '';
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(90px);
+  z-index: -2;
+  pointer-events: none;
+}
+body::before {
+  width: 560px; height: 560px;
+  top: -160px; left: -120px;
+  background: radial-gradient(circle, rgba(53,90,196,0.10), transparent 70%);
+  animation: derivar1 22s ease-in-out infinite alternate;
+}
+body::after {
+  width: 620px; height: 620px;
+  bottom: -200px; right: -160px;
+  background: radial-gradient(circle, rgba(227,190,92,0.20), transparent 70%);
+  animation: derivar2 26s ease-in-out infinite alternate;
+}
+@keyframes derivar1 {
+  0%   { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(60px, 90px) scale(1.15); }
+}
+@keyframes derivar2 {
+  0%   { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(-70px, -50px) scale(1.1); }
+}
+
+body {
+  background-image:
+    radial-gradient(ellipse 900px 500px at 20% 0%, rgba(30,58,122,0.08), transparent 60%),
+    radial-gradient(ellipse 900px 600px at 90% 100%, rgba(212,175,55,0.10), transparent 60%),
+    linear-gradient(180deg, var(--void-1), var(--void-2) 40%, var(--void-3));
+  background-attachment: fixed;
 }
 
 h1, h2, h3, .display {
@@ -49,11 +114,18 @@ a { color: var(--gold); }
   max-width: 720px;
   margin: 0 auto;
   padding: 0 20px 60px;
+  position: relative;
+  z-index: 1;
 }
 
 .topbar {
-  border-bottom: 2px solid var(--mid-green);
-  background: linear-gradient(180deg, rgba(0,0,0,0.15), transparent);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(8, 13, 22, 0.55);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border-bottom: 1px solid var(--glass-border);
 }
 
 .topbar-inner {
@@ -74,6 +146,7 @@ a { color: var(--gold); }
   display: flex;
   align-items: center;
   gap: 8px;
+  text-shadow: 0 0 18px rgba(227,190,92,0.35);
 }
 .brand .ball { font-size: 20px; }
 
@@ -91,29 +164,68 @@ nav.tabs a {
   letter-spacing: 0.05em;
   text-transform: uppercase;
   padding: 8px 14px;
-  border-radius: var(--radius);
+  border-radius: 100px;
   border: 1px solid transparent;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 nav.tabs a:hover {
   color: var(--chalk);
-  border-color: var(--mid-green);
+  border-color: var(--glass-border-bright);
+  background: rgba(255,255,255,0.05);
 }
 
 nav.tabs a.active {
-  color: var(--pitch-dark);
+  color: var(--void-1);
   background: var(--gold);
+  box-shadow: 0 0 22px rgba(227,190,92,0.55);
 }
 
-/* ---------- Scoreboard (signature element) ---------- */
+/* ---------- Vidrio flotante: la pieza que da la identidad "espacial" ---------- */
+.card, .scoreboard {
+  background:
+    linear-gradient(155deg, rgba(255,255,255,0.06), transparent 40%),
+    var(--glass-fill);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.10) inset,
+    0 30px 60px -20px rgba(0,0,0,0.65),
+    0 0 0 1px rgba(0,0,0,0.2);
+  transform-style: preserve-3d;
+  transition: transform 0.4s cubic-bezier(0.22,1,0.36,1), box-shadow 0.4s ease, border-color 0.4s ease;
+  will-change: transform;
+}
+
+.card:hover, .scoreboard:hover {
+  border-color: var(--glass-border-bright);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.14) inset,
+    0 40px 80px -20px rgba(0,0,0,0.75),
+    0 0 40px -8px rgba(212,175,55,0.22);
+}
+
+.card {
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.card h2 {
+  font-size: 20px;
+  margin-bottom: 4px;
+}
+.card .sub {
+  color: var(--chalk-dim);
+  font-size: 14px;
+  margin-bottom: 18px;
+}
+
+/* ---------- Marcador ---------- */
 .scoreboard {
   margin: 32px 0;
-  border: 2px solid var(--mid-green);
-  border-radius: var(--radius);
-  background: var(--pitch);
   overflow: hidden;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.35);
 }
 
 .scoreboard-header {
@@ -121,8 +233,8 @@ nav.tabs a.active {
   align-items: center;
   justify-content: space-between;
   padding: 10px 18px;
-  background: var(--pitch-light);
-  border-bottom: 1px solid var(--mid-green);
+  background: rgba(255,255,255,0.03);
+  border-bottom: 1px solid var(--glass-border);
 }
 
 .scoreboard-header .label {
@@ -146,12 +258,16 @@ nav.tabs a.active {
   height: 9px;
   border-radius: 50%;
   display: inline-block;
-  box-shadow: 0 0 8px currentColor;
+  box-shadow: 0 0 10px currentColor;
 }
-.led.abierta { color: #4CAF50; }
-.led.abierta::before { background: #4CAF50; }
+.led.abierta { color: var(--gold); }
+.led.abierta::before { background: var(--gold); animation: pulso 1.8s ease-in-out infinite; }
 .led.cerrada { color: var(--red-card); }
 .led.cerrada::before { background: var(--red-card); }
+@keyframes pulso {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
 
 .scoreboard-body {
   padding: 26px 18px 22px;
@@ -177,9 +293,9 @@ nav.tabs a.active {
   width: 48px;
   height: 36px;
   object-fit: cover;
-  border-radius: 4px;
-  border: 1px solid var(--mid-green);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  border-radius: 6px;
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.4);
 }
 
 .team-name {
@@ -195,10 +311,6 @@ nav.tabs a.active {
   font-size: 14px;
 }
 
-@media (max-width: 380px) {
-  .team-flag { width: 40px; height: 30px; }
-}
-
 .bote-display {
   font-family: var(--font-display);
   font-size: clamp(40px, 12vw, 64px);
@@ -206,7 +318,7 @@ nav.tabs a.active {
   letter-spacing: 0.02em;
   line-height: 1;
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 0 24px rgba(233, 196, 106, 0.35);
+  text-shadow: 0 0 30px rgba(227,190,92,0.45);
 }
 
 .bote-label {
@@ -220,14 +332,12 @@ nav.tabs a.active {
 .scoreboard-footer {
   display: flex;
   justify-content: space-around;
-  border-top: 1px solid var(--mid-green);
+  border-top: 1px solid var(--glass-border);
   padding: 12px 10px;
-  background: var(--pitch-light);
+  background: rgba(255,255,255,0.02);
 }
 
-.stat {
-  text-align: center;
-}
+.stat { text-align: center; }
 .stat .num {
   font-family: var(--font-display);
   font-size: 22px;
@@ -239,25 +349,7 @@ nav.tabs a.active {
   letter-spacing: 0.08em;
 }
 
-/* ---------- Cards / Forms ---------- */
-.card {
-  background: var(--pitch);
-  border: 1px solid var(--mid-green);
-  border-radius: var(--radius);
-  padding: 24px;
-  margin-bottom: 24px;
-}
-
-.card h2 {
-  font-size: 20px;
-  margin-bottom: 4px;
-}
-.card .sub {
-  color: var(--chalk-dim);
-  font-size: 14px;
-  margin-bottom: 18px;
-}
-
+/* ---------- Formularios ---------- */
 label {
   display: block;
   font-family: var(--font-display);
@@ -272,19 +364,23 @@ label:first-of-type { margin-top: 0; }
 input[type="text"],
 input[type="number"],
 input[type="password"],
+input[type="date"],
 select {
   width: 100%;
-  background: var(--pitch-dark);
-  border: 1px solid var(--mid-green);
+  background: rgba(0,0,0,0.28);
+  border: 1px solid var(--glass-border);
   color: var(--chalk);
   padding: 11px 12px;
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   font-family: var(--font-body);
   font-size: 15px;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04) inset;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 input:focus, select:focus {
   outline: none;
   border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(227,190,92,0.18);
 }
 
 .pick-group {
@@ -293,27 +389,24 @@ input:focus, select:focus {
   gap: 8px;
 }
 
-.pick-option {
-  position: relative;
-}
-.pick-option input {
-  position: absolute;
-  opacity: 0;
-}
+.pick-option { position: relative; }
+.pick-option input { position: absolute; opacity: 0; }
 .pick-option label {
   margin: 0;
   text-align: center;
   padding: 14px 8px;
-  border: 1px solid var(--mid-green);
-  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  background: rgba(255,255,255,0.03);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: 12px;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
 }
 .pick-option input:checked + label {
   background: var(--gold);
-  color: var(--pitch-dark);
+  color: var(--void-1);
   border-color: var(--gold);
+  box-shadow: 0 0 22px rgba(227,190,92,0.45);
 }
 
 button, .btn {
@@ -322,39 +415,44 @@ button, .btn {
   text-transform: uppercase;
   font-size: 14px;
   padding: 13px 20px;
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   border: none;
   cursor: pointer;
   width: 100%;
   margin-top: 22px;
   background: var(--gold);
-  color: var(--pitch-dark);
-  transition: filter 0.15s ease;
+  color: var(--void-1);
+  box-shadow: 0 10px 30px -8px rgba(227,190,92,0.5);
+  transition: filter 0.15s ease, transform 0.15s ease;
 }
-button:hover, .btn:hover { filter: brightness(1.08); }
-button:disabled { opacity: 0.5; cursor: not-allowed; }
+button:hover, .btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+button:active, .btn:active { transform: translateY(0); }
+button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
 .btn-outline {
-  background: transparent;
+  background: rgba(255,255,255,0.04);
   color: var(--chalk);
-  border: 1px solid var(--mid-green);
+  border: 1px solid var(--glass-border-bright);
+  box-shadow: none;
 }
 
 .btn-danger {
   background: var(--red-card);
-  color: var(--chalk);
+  color: #2A0A0A;
+  box-shadow: 0 10px 30px -8px rgba(255,107,107,0.45);
 }
 
 .msg {
   margin-top: 14px;
   padding: 10px 12px;
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   font-size: 14px;
   display: none;
+  backdrop-filter: blur(10px);
 }
 .msg.show { display: block; }
-.msg.ok { background: rgba(76,175,80,0.15); border: 1px solid #4CAF50; color: #A5D6A7; }
-.msg.err { background: rgba(158,42,43,0.15); border: 1px solid var(--red-card); color: #EEB3B3; }
+.msg.ok { background: rgba(212,175,55,0.14); border: 1px solid var(--gold); color: #F3DFA0; }
+.msg.err { background: rgba(255,107,107,0.14); border: 1px solid var(--red-card); color: #FFC9C9; }
 
 /* ---------- Tabla de apuestas ---------- */
 .table-scroll {
@@ -373,7 +471,7 @@ table {
 th, td {
   text-align: left;
   padding: 10px 8px;
-  border-bottom: 1px solid var(--mid-green);
+  border-bottom: 1px solid var(--glass-border);
   white-space: nowrap;
 }
 th {
@@ -384,6 +482,7 @@ th {
   text-transform: uppercase;
 }
 tr.winner td { color: var(--gold); }
+
 .pill {
   display: inline-block;
   padding: 3px 9px;
@@ -391,28 +490,41 @@ tr.winner td { color: var(--gold); }
   font-size: 11px;
   font-family: var(--font-display);
   letter-spacing: 0.05em;
-  border: 1px solid var(--mid-green);
+  border: 1px solid var(--glass-border);
   white-space: nowrap;
+  backdrop-filter: blur(6px);
 }
 .pill-ok {
   color: var(--gold);
   border-color: var(--gold-dim);
-  background: rgba(233, 196, 106, 0.1);
+  background: rgba(227,190,92,0.12);
+  box-shadow: 0 0 14px -4px rgba(227,190,92,0.5);
 }
 .pill-pending {
   color: var(--chalk-dim);
-  border-color: var(--mid-green);
-  background: rgba(255, 255, 255, 0.03);
+  border-color: var(--glass-border);
+  background: rgba(255,255,255,0.03);
 }
 .pill-reservado {
-  color: #7FB3D5;
+  color: #8FCBEF;
   border-color: #4A7A9C;
-  background: rgba(127, 179, 213, 0.1);
+  background: rgba(143,203,239,0.12);
 }
 .pill-danger {
-  color: #E88484;
+  color: #FF9C9C;
   border-color: var(--red-card);
-  background: rgba(158, 42, 43, 0.1);
+  background: rgba(255,107,107,0.12);
+}
+
+.pill-flag {
+  width: 16px;
+  height: 12px;
+  object-fit: cover;
+  border-radius: 2px;
+  vertical-align: middle;
+  margin-right: 5px;
+  position: relative;
+  top: -1px;
 }
 
 .empty-state {
@@ -430,9 +542,9 @@ tr.winner td { color: var(--gold); }
 }
 .resumen-item {
   text-align: center;
-  background: var(--pitch-light);
-  border: 1px solid var(--mid-green);
-  border-radius: var(--radius);
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
   padding: 16px 10px;
 }
 .resumen-nombre {
@@ -447,20 +559,10 @@ tr.winner td { color: var(--gold); }
   width: 36px;
   height: 27px;
   object-fit: cover;
-  border-radius: 3px;
-  border: 1px solid var(--mid-green);
+  border-radius: 4px;
+  border: 1px solid var(--glass-border);
   display: block;
   margin: 0 auto 8px;
-}
-.pill-flag {
-  width: 16px;
-  height: 12px;
-  object-fit: cover;
-  border-radius: 2px;
-  vertical-align: middle;
-  margin-right: 5px;
-  position: relative;
-  top: -1px;
 }
 .resumen-monto {
   font-family: var(--font-display);
@@ -475,17 +577,27 @@ tr.winner td { color: var(--gold); }
   letter-spacing: 0.05em;
 }
 
-@media (max-width: 480px) {
-  .pick-group { grid-template-columns: 1fr; }
-  .scoreboard-footer { flex-wrap: wrap; gap: 12px; }
-  .resumen-equipos { grid-template-columns: 1fr; }
-}
-
 footer {
   text-align: center;
   color: var(--chalk-dim);
   font-size: 12px;
   margin-top: 40px;
   padding-top: 20px;
-  border-top: 1px solid var(--mid-green);
+  border-top: 1px solid var(--glass-border);
+}
+
+@media (max-width: 480px) {
+  .pick-group { grid-template-columns: 1fr; }
+  .scoreboard-footer { flex-wrap: wrap; gap: 12px; }
+  .resumen-equipos { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 380px) {
+  .team-flag { width: 40px; height: 30px; }
+}
+
+/* Foco visible por teclado (accesibilidad) */
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
 }
